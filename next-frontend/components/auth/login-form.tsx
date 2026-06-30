@@ -51,9 +51,9 @@ function LoginForm({ className, ...props }: React.ComponentProps<"form">) {
     }
 
     // On 200 the BFF has already sealed the iron-session cookie (tokens never
-    // cross to the browser, per TD-02). Refresh so server chrome reflects the
-    // authenticated session (per phase-02-auth-frontend/TD-06).
-    router.refresh()
+    // cross to the browser, per TD-02). Push to home so server chrome reflects
+    // the authenticated session on the next render (per phase-02-auth-frontend/TD-06).
+    router.push("/")
   }
 
   return (
