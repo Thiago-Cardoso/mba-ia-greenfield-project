@@ -9,7 +9,6 @@ import {
 } from '../test/create-test-data-source';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
-import { TestingModule } from '@nestjs/testing';
 
 const ALL_ENTITIES = [User, Channel, RefreshToken, VerificationToken];
 
@@ -24,7 +23,7 @@ describe('UsersService (integration)', () => {
     await dataSource.initialize();
     userRepository = dataSource.getRepository(User);
     channelRepository = dataSource.getRepository(Channel);
-    const channelsService = new ChannelsService(dataSource);
+    const channelsService = new ChannelsService(channelRepository);
     usersService = new UsersService(userRepository, channelsService);
   });
 
@@ -37,7 +36,7 @@ describe('UsersService (integration)', () => {
   });
 
   describe('createUserWithChannel', () => {
-    it('creates a user and channel', async () => {
+    it('creates a user with a default channel', async () => {
       const user = await usersService.createUserWithChannel(
         'test@example.com',
         'hashed',
@@ -45,9 +44,9 @@ describe('UsersService (integration)', () => {
 
       expect(user.id).toBeDefined();
       expect(user.email).toBe('test@example.com');
-      expect(user.channel).toBeDefined();
-      expect(user.channel.nickname).toBe('test');
-      expect(user.channel.name).toBe('test');
+      expect(user.channels).toHaveLength(1);
+      expect(user.channels[0].name).toBe('test');
+      expect(user.channels[0].slug).toMatch(/^test-[a-z0-9]{6}$/);
 
       const dbUser = await userRepository.findOneBy({ id: user.id });
       const dbChannel = await channelRepository.findOneBy({ user_id: user.id });
@@ -55,26 +54,29 @@ describe('UsersService (integration)', () => {
       expect(dbChannel).not.toBeNull();
     });
 
-    it('derives nickname from email prefix', async () => {
+    it('derives channel name from email prefix', async () => {
       const user = await usersService.createUserWithChannel(
         'john.doe+tag@example.com',
         'hashed',
       );
-      expect(user.channel.nickname).toBe('johndoetag');
+      expect(user.channels[0].name).toBe('john.doe+tag');
     });
 
-    it('handles nickname collision by appending a random suffix', async () => {
-      await usersService.createUserWithChannel('test@example.com', 'hashed');
+    it('creates two users with same email prefix (both succeed via unique suffix)', async () => {
+      const user1 = await usersService.createUserWithChannel(
+        'test@example.com',
+        'hashed',
+      );
       const user2 = await usersService.createUserWithChannel(
         'test@other.com',
         'hashed',
       );
 
-      expect(user2.channel.nickname).toMatch(/^test_[a-z0-9]{3}$/);
+      expect(user1.channels[0].slug).not.toBe(user2.channels[0].slug);
     });
 
     it('compensates by deleting the user when channel creation fails irrecoverably', async () => {
-      const failingChannelsService = new ChannelsService(dataSource);
+      const failingChannelsService = new ChannelsService(channelRepository);
       jest
         .spyOn(failingChannelsService, 'createChannel')
         .mockRejectedValue(new Error('channel creation failed'));

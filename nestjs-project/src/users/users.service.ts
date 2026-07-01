@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChannelsService } from '../channels/channels.service';
+import { slugify } from '../channels/slug.util';
 import { User } from './entities/user.entity';
 
 @Injectable()
@@ -22,11 +23,16 @@ export class UsersService {
     const savedUser = await this.userRepository.save(user);
 
     try {
+      const emailPrefix = email.split('@')[0];
+      const name = emailPrefix;
+      const suffix = Math.random().toString(36).slice(2, 8);
+      const slug = `${slugify(emailPrefix)}-${suffix}`;
       const channel = await this.channelsService.createChannel(
         savedUser.id,
-        email,
+        name,
+        slug,
       );
-      savedUser.channel = channel;
+      savedUser.channels = [channel];
       return savedUser;
     } catch (err) {
       await this.userRepository.delete(savedUser.id);
@@ -45,7 +51,7 @@ export class UsersService {
   async findByEmailWithChannel(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },
-      relations: ['channel'],
+      relations: ['channels'],
     });
   }
 
