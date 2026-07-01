@@ -7,7 +7,7 @@ const SEED_USER = {
   email: 'demo@streamtube.com',
   password: 'Demo@12345',
   channelName: 'Demo User',
-  channelNickname: 'demo',
+  channelSlug: 'demo',
 };
 
 async function runSeed(): Promise<void> {
@@ -35,17 +35,16 @@ async function runSeed(): Promise<void> {
 
   const channel = channelRepo.create({
     name: SEED_USER.channelName,
-    nickname: SEED_USER.channelNickname,
-    description: null,
+    slug: SEED_USER.channelSlug,
     user_id: savedUser.id,
   });
   await channelRepo.save(channel);
 
   console.log('');
-  console.log('✓ Seed user created:');
+  console.log('Seed user created:');
   console.log(`  Email:    ${SEED_USER.email}`);
   console.log(`  Password: ${SEED_USER.password}`);
-  console.log(`  Channel:  ${SEED_USER.channelNickname}`);
+  console.log(`  Channel:  ${SEED_USER.channelSlug}`);
   console.log('');
 
   await AppDataSource.destroy();

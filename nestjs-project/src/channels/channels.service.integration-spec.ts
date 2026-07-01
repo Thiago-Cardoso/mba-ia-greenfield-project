@@ -6,6 +6,7 @@ import {
   createTestDataSource,
 } from '../test/create-test-data-source';
 import { User } from '../users/entities/user.entity';
+import { ChannelSlugTakenException } from './exceptions/channels.exceptions';
 import { ChannelsService } from './channels.service';
 import { Channel } from './entities/channel.entity';
 
@@ -22,7 +23,7 @@ describe('ChannelsService (integration)', () => {
     await dataSource.initialize();
     userRepository = dataSource.getRepository(User);
     channelRepository = dataSource.getRepository(Channel);
-    channelsService = new ChannelsService(dataSource);
+    channelsService = new ChannelsService(channelRepository);
   });
 
   afterAll(async () => {
@@ -44,49 +45,62 @@ describe('ChannelsService (integration)', () => {
   }
 
   describe('createChannel', () => {
-    it('persists a channel derived from email', async () => {
+    it('persists a channel with auto-generated slug from name', async () => {
       const user = await createUser();
 
-      const channel = await channelsService.createChannel(
-        user.id,
-        'mynick@example.com',
-      );
+      const channel = await channelsService.createChannel(user.id, 'Meu Canal');
 
       expect(channel.id).toBeDefined();
-      expect(channel.nickname).toBe('mynick');
-      expect(channel.name).toBe('mynick');
+      expect(channel.slug).toBe('meu-canal');
+      expect(channel.name).toBe('Meu Canal');
       expect(channel.user_id).toBe(user.id);
 
       const persisted = await channelRepository.findOneBy({ user_id: user.id });
       expect(persisted).not.toBeNull();
-      expect(persisted!.nickname).toBe('mynick');
+      expect(persisted!.slug).toBe('meu-canal');
     });
 
-    it('derives nickname from email prefix', async () => {
+    it('persists a channel with the provided slug', async () => {
       const user = await createUser();
 
       const channel = await channelsService.createChannel(
         user.id,
-        'John.Doe+tag@example.com',
+        'My Channel',
+        'my-custom-slug',
       );
 
-      expect(channel.nickname).toBe('johndoetag');
+      expect(channel.slug).toBe('my-custom-slug');
     });
 
-    it('resolves nickname collision by appending a suffix', async () => {
+    it('allows multiple channels per user', async () => {
+      const user = await createUser();
+
+      await channelsService.createChannel(
+        user.id,
+        'Channel One',
+        'channel-one',
+      );
+      await channelsService.createChannel(
+        user.id,
+        'Channel Two',
+        'channel-two',
+      );
+
+      const channels = await channelRepository.find({
+        where: { user_id: user.id },
+      });
+      expect(channels).toHaveLength(2);
+    });
+
+    it('throws ChannelSlugTakenException when slug is already taken', async () => {
       const user1 = await createUser();
       const user2 = await createUser();
 
-      await channelsService.createChannel(user1.id, 'shared@example.com');
-      const channel2 = await channelsService.createChannel(
-        user2.id,
-        'shared@example.com',
-      );
+      await channelsService.createChannel(user1.id, 'Channel', 'shared-slug');
 
-      expect(channel2.nickname).toMatch(/^shared_[a-z0-9]{3}$/);
-
-      const channels = await channelRepository.find();
-      expect(channels).toHaveLength(2);
+      await expect(
+        channelsService.createChannel(user2.id, 'Other Channel', 'shared-slug'),
+      ).rejects.toThrow(ChannelSlugTakenException);
     });
   });
 });

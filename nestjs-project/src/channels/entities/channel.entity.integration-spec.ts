@@ -40,14 +40,14 @@ describe('Channel entity (integration)', () => {
     );
   }
 
-  it('should enforce unique nickname constraint', async () => {
+  it('should enforce unique slug constraint', async () => {
     const user1 = await createUser();
     const user2 = await createUser();
 
     await channelRepository.save(
       channelRepository.create({
         name: 'Channel One',
-        nickname: 'chan',
+        slug: 'chan',
         user_id: user1.id,
       }),
     );
@@ -56,79 +56,67 @@ describe('Channel entity (integration)', () => {
       channelRepository.save(
         channelRepository.create({
           name: 'Channel Two',
-          nickname: 'chan',
+          slug: 'chan',
           user_id: user2.id,
         }),
       ),
     ).rejects.toThrow();
   });
 
-  it('should enforce nickname max length of 50 characters', async () => {
-    const user = await createUser();
-    const longNickname = 'a'.repeat(51);
-
-    await expect(
-      channelRepository.save(
-        channelRepository.create({
-          name: 'Chan',
-          nickname: longNickname,
-          user_id: user.id,
-        }),
-      ),
-    ).rejects.toThrow();
-  });
-
-  it('should allow null description', async () => {
-    const user = await createUser();
-    const channel = await channelRepository.save(
-      channelRepository.create({
-        name: 'Chan',
-        nickname: 'chan',
-        user_id: user.id,
-        description: null,
-      }),
-    );
-
-    expect(channel.description).toBeNull();
-  });
-
-  it('should enforce one-to-one relation: one user_id per channel', async () => {
+  it('should allow multiple channels per user (ManyToOne)', async () => {
     const user = await createUser();
 
     await channelRepository.save(
       channelRepository.create({
-        name: 'Chan',
-        nickname: 'chan1',
+        name: 'Channel One',
+        slug: 'chan-one',
+        user_id: user.id,
+      }),
+    );
+    await channelRepository.save(
+      channelRepository.create({
+        name: 'Channel Two',
+        slug: 'chan-two',
         user_id: user.id,
       }),
     );
 
-    await expect(
-      channelRepository.save(
-        channelRepository.create({
-          name: 'Chan2',
-          nickname: 'chan2',
-          user_id: user.id,
-        }),
-      ),
-    ).rejects.toThrow();
+    const channels = await channelRepository.find({
+      where: { user_id: user.id },
+    });
+    expect(channels).toHaveLength(2);
   });
 
-  it('should load the related user via the OneToOne relation', async () => {
+  it('should load the related user via the ManyToOne relation', async () => {
     const user = await createUser();
     await channelRepository.save(
       channelRepository.create({
         name: 'Chan',
-        nickname: 'relchan',
+        slug: 'relchan',
         user_id: user.id,
       }),
     );
 
     const found = await channelRepository.findOne({
-      where: { nickname: 'relchan' },
+      where: { slug: 'relchan' },
       relations: ['user'],
     });
 
     expect(found?.user.email).toBe(user.email);
+  });
+
+  it('should enforce slug max length of 255 characters', async () => {
+    const user = await createUser();
+    const longSlug = 'a'.repeat(256);
+
+    await expect(
+      channelRepository.save(
+        channelRepository.create({
+          name: 'Chan',
+          slug: longSlug,
+          user_id: user.id,
+        }),
+      ),
+    ).rejects.toThrow();
   });
 });
