@@ -2,7 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  OneToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -28,6 +28,6 @@ export class User {
   @UpdateDateColumn()
   updated_at: Date;
 
-  @OneToOne(() => Channel, (channel) => channel.user, { cascade: true })
-  channel: Channel;
+  @OneToMany(() => Channel, (channel) => channel.user)
+  channels: Channel[];
 }

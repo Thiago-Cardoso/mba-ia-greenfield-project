@@ -110,7 +110,7 @@ describe('AuthService — register', () => {
     usersService.createUserWithChannel.mockResolvedValue({
       id: 'u1',
       email: 'new@example.com',
-      channel: { name: 'new' },
+      channels: [{ name: 'new' }],
     } as any);
     verificationTokenRepository.create.mockReturnValue({} as any);
 
@@ -129,7 +129,7 @@ describe('AuthService — register', () => {
     usersService.createUserWithChannel.mockResolvedValue({
       id: 'u1',
       email: 'new@example.com',
-      channel: { name: 'new' },
+      channels: [{ name: 'new' }],
     } as any);
     verificationTokenRepository.create.mockReturnValue({} as any);
 
@@ -149,7 +149,7 @@ describe('AuthService — register', () => {
     usersService.createUserWithChannel.mockResolvedValue({
       id: 'u1',
       email: 'new@example.com',
-      channel: { name: 'new' },
+      channels: [{ name: 'new' }],
     } as any);
     const createdToken = {
       type: VerificationTokenType.EMAIL_CONFIRMATION,
@@ -175,7 +175,7 @@ describe('AuthService — register', () => {
     usersService.createUserWithChannel.mockResolvedValue({
       id: 'u1',
       email: 'new@example.com',
-      channel: { name: 'mynick' },
+      channels: [{ name: 'mynick' }],
     } as any);
     verificationTokenRepository.create.mockReturnValue({} as any);
 
@@ -196,7 +196,7 @@ describe('AuthService — register', () => {
     usersService.createUserWithChannel.mockResolvedValue({
       id: 'u1',
       email: 'new@example.com',
-      channel: { name: 'new' },
+      channels: [{ name: 'new' }],
     } as any);
     verificationTokenRepository.create.mockReturnValue({} as any);
 
@@ -355,7 +355,7 @@ describe('AuthService — resendConfirmation', () => {
     usersService.findByEmailWithChannel.mockResolvedValue({
       id: 'u1',
       is_confirmed: true,
-      channel: { name: 'nick' },
+      channels: [{ name: 'nick' }],
     } as any);
 
     await expect(
@@ -369,7 +369,7 @@ describe('AuthService — resendConfirmation', () => {
       id: 'u1',
       email: 'user@example.com',
       is_confirmed: false,
-      channel: { name: 'nick' },
+      channels: [{ name: 'nick' }],
     } as any;
     usersService.findByEmailWithChannel.mockResolvedValue(user);
 
@@ -656,7 +656,7 @@ describe('AuthService — forgotPassword', () => {
     const user = {
       id: 'u1',
       email: 'user@example.com',
-      channel: { name: 'nick' },
+      channels: [{ name: 'nick' }],
     } as any;
     usersService.findByEmailWithChannel.mockResolvedValue(user);
 
