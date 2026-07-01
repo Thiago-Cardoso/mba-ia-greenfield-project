@@ -25,6 +25,8 @@ services:
       dockerfile: Dockerfile.worker
     env_file:
       - .env
+    profiles:
+      - worker
     depends_on:
       db:
         condition: service_healthy
@@ -32,8 +34,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      nestjs-api:
-        condition: service_started
 
   db:
     image: postgres:17
@@ -55,8 +55,8 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      - MINIO_ROOT_USER=streamtube
-      - MINIO_ROOT_PASSWORD=streamtube
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-streamtube}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-streamtube}
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
