@@ -13,6 +13,8 @@ docker compose ps   # all services must show status "running"
 Then verify each infrastructure service is actually ready to accept connections — not just running:
 
 - **PostgreSQL:** `docker compose exec db pg_isready -U streamtube` — expect `accepting connections`
+- **MinIO:** `docker compose exec minio mc ready local` — expect `The cluster is ready` (MinIO does not expose host ports to avoid conflicts; health is verified via container exec)
+- **Redis:** `docker compose exec redis redis-cli ping` — expect `PONG`
 
 Only start the NestJS dev server (`npm run start:dev`) when the user **explicitly** asks to run the application — never as part of "start the environment".
 
@@ -33,7 +35,11 @@ docker compose exec nestjs-api npm run start:dev
 
 Services:
 - `nestjs-api` — NestJS API, port `3000`
+- `nestjs-worker` — Video worker (FFmpeg), no exposed port — consumes BullMQ jobs from Redis
 - `db` — PostgreSQL 17, port `5432`, database `streamtube`, user/password `streamtube`
+- `minio` — Object storage (MinIO), internal port `9000`/`9001` (no host binding — avoids conflicts), user/password `streamtube`
+- `redis` — Message queue backend (Redis 7), internal port `6379` (no host binding — avoids conflicts)
+- `mailpit` — SMTP capture, SMTP port `1025`, web UI port `8025`
 
 All verification and teardown commands run on the **host machine**:
 
@@ -44,9 +50,18 @@ curl http://localhost:3000
 # Verify PostgreSQL is ready (runs inside the db container)
 docker compose exec db pg_isready -U streamtube
 
+# Verify MinIO is healthy (internal healthcheck — no host port)
+docker compose exec minio mc ready local
+
+# Verify Redis is responsive
+docker compose exec redis redis-cli ping
+
 # Check container logs
 docker compose logs nestjs-api
+docker compose logs nestjs-worker
 docker compose logs db
+docker compose logs minio
+docker compose logs redis
 
 # Tear down the entire environment
 docker compose down

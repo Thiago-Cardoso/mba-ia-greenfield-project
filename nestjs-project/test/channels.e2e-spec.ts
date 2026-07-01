@@ -100,11 +100,11 @@ describe('POST /channels (e2e)', () => {
         created_at: string;
       };
       expect(body).toMatchObject({
-        id: expect.any(String),
-        user_id: expect.any(String),
+        id: expect.any(String) as unknown as string,
+        user_id: expect.any(String) as unknown as string,
         name: 'Meu Canal',
-        slug: expect.stringMatching(/^[a-z0-9-]+$/),
-        created_at: expect.any(String),
+        slug: expect.stringMatching(/^[a-z0-9-]+$/) as unknown as string,
+        created_at: expect.any(String) as unknown as string,
       });
       expect(body.slug).toContain('meu-canal');
     });
