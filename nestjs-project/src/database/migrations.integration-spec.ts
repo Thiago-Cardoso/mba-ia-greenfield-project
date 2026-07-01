@@ -31,22 +31,32 @@ describe('Database migrations (integration)', () => {
 
     await dataSource.initialize();
 
-    await Promise.all([
-      ...MANAGED_TABLES.map((table) =>
-        dataSource.query(`DROP TABLE IF EXISTS "${table}" CASCADE`),
-      ),
-      dataSource.query(`DROP TABLE IF EXISTS "migrations" CASCADE`),
-    ]);
+    // Drop tables sequentially to avoid lock conflicts between CASCADE drops
+    for (const table of MANAGED_TABLES) {
+      await dataSource.query(`DROP TABLE IF EXISTS "${table}" CASCADE`);
+    }
+    await dataSource.query(`DROP TABLE IF EXISTS "migrations" CASCADE`);
     await dataSource.query(
       `DROP TYPE IF EXISTS "public"."verification_tokens_type_enum"`,
     );
   });
 
   afterAll(async () => {
-    // The second test undoes the last migration, leaving token tables missing.
-    // Re-apply so the shared DB is fully migrated when subsequent suites run.
+    // The second test undoes CreateAuthTokens, leaving token tables missing.
+    // Re-apply so the shared DB is fully migrated.
     await dataSource.runMigrations();
     await dataSource.destroy();
+
+    // Restore Phase 03 schema (synchronize syncs entities to current definitions).
+    // This ensures channels table has slug/ManyToOne schema for subsequent test suites.
+    const restoreDs = createTestDataSource([
+      User,
+      Channel,
+      RefreshToken,
+      VerificationToken,
+    ]);
+    await restoreDs.initialize();
+    await restoreDs.destroy();
   });
 
   it('should apply all migrations and create all four tables', async () => {
