@@ -13,7 +13,7 @@ docker compose ps   # all services must show status "running"
 Then verify each infrastructure service is actually ready to accept connections — not just running:
 
 - **PostgreSQL:** `docker compose exec db pg_isready -U streamtube` — expect `accepting connections`
-- **MinIO:** `docker compose exec minio mc ready local` — expect `The cluster is ready` (MinIO does not expose host ports to avoid conflicts; health is verified via container exec)
+- **MinIO:** `docker compose exec minio mc ready local` — expect `The cluster is ready` (`mc` client is bundled in the `minio/minio` image; no host port exposed to avoid conflicts)
 - **Redis:** `docker compose exec redis redis-cli ping` — expect `PONG`
 
 Only start the NestJS dev server (`npm run start:dev`) when the user **explicitly** asks to run the application — never as part of "start the environment".
@@ -23,8 +23,11 @@ Only start the NestJS dev server (`npm run start:dev`) when the user **explicitl
 This project runs inside Docker. Always use the container for development:
 
 ```bash
-# Start containers
+# Start infra + API (default — worker excluded until SI-03.8)
 docker compose up -d
+
+# Start everything including the video worker
+docker compose --profile worker up -d
 
 # Install dependencies (first time only)
 docker compose exec nestjs-api npm install
@@ -35,9 +38,9 @@ docker compose exec nestjs-api npm run start:dev
 
 Services:
 - `nestjs-api` — NestJS API, port `3000`
-- `nestjs-worker` — Video worker (FFmpeg), no exposed port — consumes BullMQ jobs from Redis
+- `nestjs-worker` — Video worker (FFmpeg), no exposed port — consumes BullMQ jobs from Redis (**profile: `worker`** — not started by default; use `docker compose --profile worker up -d` to include it; implemented in SI-03.8)
 - `db` — PostgreSQL 17, port `5432`, database `streamtube`, user/password `streamtube`
-- `minio` — Object storage (MinIO), internal port `9000`/`9001` (no host binding — avoids conflicts), user/password `streamtube`
+- `minio` — Object storage (MinIO), internal port `9000`/`9001` (no host binding — avoids conflicts), user/password via `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` in `.env`
 - `redis` — Message queue backend (Redis 7), internal port `6379` (no host binding — avoids conflicts)
 - `mailpit` — SMTP capture, SMTP port `1025`, web UI port `8025`
 
@@ -58,10 +61,11 @@ docker compose exec redis redis-cli ping
 
 # Check container logs
 docker compose logs nestjs-api
-docker compose logs nestjs-worker
 docker compose logs db
 docker compose logs minio
 docker compose logs redis
+# worker is profile-gated:
+docker compose --profile worker logs nestjs-worker
 
 # Tear down the entire environment
 docker compose down

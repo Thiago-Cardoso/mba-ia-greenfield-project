@@ -49,6 +49,7 @@ describe('ChannelsService', () => {
 
       const result = await service.createChannel('user-id', 'Meu Canal');
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           user_id: 'user-id',
@@ -73,6 +74,7 @@ describe('ChannelsService', () => {
         'custom-slug',
       );
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({ slug: 'custom-slug' }),
       );

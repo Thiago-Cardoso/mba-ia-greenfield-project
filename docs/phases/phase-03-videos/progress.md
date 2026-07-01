@@ -14,14 +14,19 @@
   - **Fix pós-review:** colisão de slug aleatório durante registro propagava 409 ao usuário — `UsersService` faz retry até 3x em `ChannelSlugTakenException` com fallback de base slug `'channel'` e sufixo padded.
 
 ### SI-03.2 — Infra Docker Compose (MinIO + Redis + worker)
-- **Status:** pending
-- **Tests:** pending
-- **Observations:** none
+- **Status:** completed
+- **Tests:** no tests (infra SI)
+- **Observations:**
+  - MinIO, Redis e nestjs-worker adicionados ao compose.yaml; Dockerfile.worker criado e PR #4 mergeado em dev.
+  - Melhorias pós-merge não commitadas (Dockerfile multi-stage, profiles: worker, CLAUDE.md) estão na branch feature/SI-03.3.
 
 ### SI-03.3 — StorageModule (S3Client + StorageService)
-- **Status:** pending
-- **Tests:** pending
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 6 passing (integration — MinIO real)
+- **Observations:**
+  - Buckets `streamtube-videos` e `streamtube-thumbnails` criados no MinIO via `mc mb` antes dos testes.
+  - Presigned PUT usa chave provisória de `MINIO_ENDPOINT`; funciona com `fetch()` nativo (Node 18+) sem cliente S3 extra no teste.
+  - Arquivo de 500 bytes no teste de Range usa multipart (mínimo 5 MB por parte); MinIO aceita partes menores neste contexto de teste.
 
 ### SI-03.4 — QueueModule (BullMQ + Redis)
 - **Status:** pending
