@@ -6,11 +6,13 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ChannelsModule } from './channels/channels.module';
 import { StorageModule } from './storage/storage.module';
+import { QueueModule } from './queue/queue.module';
 import appConfig from './config/app.config';
 import authConfig from './config/auth.config';
 import databaseConfig from './config/database.config';
 import mailConfig from './config/mail.config';
 import storageConfig from './config/storage.config';
+import queueConfig from './config/queue.config';
 import swaggerConfig from './config/swagger.config';
 import { envValidationSchema } from './config/env.validation';
 
@@ -24,6 +26,7 @@ import { envValidationSchema } from './config/env.validation';
         databaseConfig,
         mailConfig,
         storageConfig,
+        queueConfig,
         swaggerConfig,
       ],
       validationSchema: envValidationSchema,
@@ -46,6 +49,7 @@ import { envValidationSchema } from './config/env.validation';
     AuthModule,
     ChannelsModule,
     StorageModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],
