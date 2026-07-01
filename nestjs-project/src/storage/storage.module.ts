@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigType } from '@nestjs/config';
+import { ConfigModule, type ConfigType } from '@nestjs/config';
 import { S3Client } from '@aws-sdk/client-s3';
 import storageConfig from '../config/storage.config';
 import { StorageService } from './storage.service';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule.forFeature(storageConfig)],
   providers: [
     {
       provide: S3Client,

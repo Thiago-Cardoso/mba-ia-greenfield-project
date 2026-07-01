@@ -98,6 +98,7 @@ describe('StorageService (integration)', () => {
         body: content,
         headers: { 'Content-Length': String(content.byteLength) },
       });
+      expect(putRes.status).toBe(200);
       const etag = putRes.headers.get('etag') ?? '';
 
       await service.completeMultipartUpload(BUCKET, key, uploadId, [
@@ -147,6 +148,7 @@ describe('StorageService (integration)', () => {
         body: content,
         headers: { 'Content-Length': String(content.byteLength) },
       });
+      expect(putRes.status).toBe(200);
       const etag = putRes.headers.get('etag') ?? '';
       await service.completeMultipartUpload(BUCKET, rangeKey, uploadId, [
         { PartNumber: 1, ETag: etag },

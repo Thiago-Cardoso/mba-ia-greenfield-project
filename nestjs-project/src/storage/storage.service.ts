@@ -17,7 +17,7 @@ export interface CompletedPart {
 
 export interface ObjectStream {
   body: Readable;
-  contentLength: number;
+  contentLength: number | undefined;
   contentRange?: string;
 }
 
@@ -66,8 +66,8 @@ export class StorageService {
     key: string,
     uploadId: string,
     parts: CompletedPart[],
-  ): Promise<void> {
-    await this.s3.send(
+  ): Promise<{ location?: string; etag?: string }> {
+    const { Location, ETag } = await this.s3.send(
       new CompleteMultipartUploadCommand({
         Bucket: bucket,
         Key: key,
@@ -75,6 +75,7 @@ export class StorageService {
         MultipartUpload: { Parts: parts },
       }),
     );
+    return { location: Location, etag: ETag };
   }
 
   async abortMultipartUpload(
@@ -103,9 +104,12 @@ export class StorageService {
         ...(range ? { Range: range } : {}),
       }),
     );
+    if (!Body) {
+      throw new Error(`S3 returned empty body for key: ${key}`);
+    }
     return {
       body: Body as Readable,
-      contentLength: ContentLength ?? 0,
+      contentLength: ContentLength,
       ...(ContentRange ? { contentRange: ContentRange } : {}),
     };
   }

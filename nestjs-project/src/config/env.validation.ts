@@ -23,7 +23,7 @@ export const envValidationSchema = Joi.object({
   SWAGGER_ENABLED: Joi.string().valid('true', 'false').default('false'),
   MINIO_ENDPOINT: Joi.string().uri().default('http://minio:9000'),
   MINIO_ACCESS_KEY: Joi.string().default('streamtube'),
-  MINIO_SECRET_KEY: Joi.string().default('streamtube'),
+  MINIO_SECRET_KEY: Joi.string().min(8).default('streamtube'),
   MINIO_REGION: Joi.string().default('us-east-1'),
   VIDEO_BUCKET: Joi.string().default('streamtube-videos'),
   THUMBNAIL_BUCKET: Joi.string().default('streamtube-thumbnails'),
