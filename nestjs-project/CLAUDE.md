@@ -167,8 +167,9 @@ Whenever possible, prefer storing only the bare address in `.env` and composing 
 |--------|---------|-----------|
 | `StorageModule` | `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` | `S3Client` configurado via `ConfigModule.forFeature(storageConfig)` para MinIO (`forcePathStyle: true`); `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort) e streaming com suporte a Range Requests |
 | `QueueModule` | `@nestjs/bullmq`, `bullmq`, `ioredis` | `BullModule` configurado via `forRootAsync` com Redis (host/port via `queueConfig`); expõe a fila `video-processing` para injeção via `@InjectQueue('video-processing')` em qualquer módulo que importe `QueueModule` |
+| `VideosModule` | `typeorm` | Entidade `Video` com enum `VideoStatus` (draft/processing/ready/error), slug único de 11 chars gerado com `crypto.randomBytes` (alphabet URL-safe), FK para `Channel`, coluna jsonb `metadata`; `VideosService` expõe `createDraftVideo`, `findByIdOrFail`, `findBySlugOrFail`, `updateStatus`, `updateAfterProcessing` (usa load+save para evitar problema de typing do TypeORM com jsonb em `update()`) |
 
-Ambos os módulos usam `ConfigModule.forFeature(config)` internamente — auto-suficientes em contexto standalone (worker).
+`StorageModule` e `QueueModule` usam `ConfigModule.forFeature(config)` internamente — auto-suficientes em contexto standalone (worker).
 
 ## Architecture
 
