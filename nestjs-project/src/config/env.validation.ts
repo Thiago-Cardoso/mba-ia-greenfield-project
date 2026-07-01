@@ -28,5 +28,5 @@ export const envValidationSchema = Joi.object({
   VIDEO_BUCKET: Joi.string().default('streamtube-videos'),
   THUMBNAIL_BUCKET: Joi.string().default('streamtube-thumbnails'),
   REDIS_HOST: Joi.string().default('redis'),
-  REDIS_PORT: Joi.number().default(6379),
+  REDIS_PORT: Joi.number().port().default(6379),
 });
