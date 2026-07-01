@@ -1,5 +1,8 @@
 import { QueryFailedError, Repository } from 'typeorm';
-import { ChannelSlugTakenException } from './exceptions/channels.exceptions';
+import {
+  ChannelSlugInvalidException,
+  ChannelSlugTakenException,
+} from './exceptions/channels.exceptions';
 import { ChannelsService } from './channels.service';
 import { Channel } from './entities/channel.entity';
 
@@ -74,6 +77,24 @@ describe('ChannelsService', () => {
         expect.objectContaining({ slug: 'custom-slug' }),
       );
       expect(result.slug).toBe('custom-slug');
+    });
+
+    it('throws ChannelSlugInvalidException when name produces an empty slug', async () => {
+      const repo = makeRepo();
+      const service = new ChannelsService(repo);
+
+      await expect(service.createChannel('user-id', '!!!')).rejects.toThrow(
+        ChannelSlugInvalidException,
+      );
+    });
+
+    it('throws ChannelSlugInvalidException when emoji-only name produces an empty slug', async () => {
+      const repo = makeRepo();
+      const service = new ChannelsService(repo);
+
+      await expect(service.createChannel('user-id', '🎥')).rejects.toThrow(
+        ChannelSlugInvalidException,
+      );
     });
 
     it('throws ChannelSlugTakenException on unique constraint violation', async () => {

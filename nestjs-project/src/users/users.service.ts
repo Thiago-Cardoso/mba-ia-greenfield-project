@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChannelsService } from '../channels/channels.service';
+import { Channel } from '../channels/entities/channel.entity';
+import { ChannelSlugTakenException } from '../channels/exceptions/channels.exceptions';
 import { slugify } from '../channels/slug.util';
 import { User } from './entities/user.entity';
 
@@ -25,14 +27,26 @@ export class UsersService {
     try {
       const emailPrefix = email.split('@')[0];
       const name = emailPrefix;
-      const suffix = Math.random().toString(36).slice(2, 8);
-      const slug = `${slugify(emailPrefix)}-${suffix}`;
-      const channel = await this.channelsService.createChannel(
-        savedUser.id,
-        name,
-        slug,
-      );
-      savedUser.channels = [channel];
+      const baseSlug = slugify(emailPrefix) || 'channel';
+
+      let channel: Channel | undefined;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const suffix = Math.random().toString(36).slice(2, 8).padEnd(6, '0');
+        const slug = `${baseSlug}-${suffix}`;
+        try {
+          channel = await this.channelsService.createChannel(
+            savedUser.id,
+            name,
+            slug,
+          );
+          break;
+        } catch (err) {
+          if (err instanceof ChannelSlugTakenException && attempt < 2) continue;
+          throw err;
+        }
+      }
+
+      savedUser.channels = [channel!];
       return savedUser;
     } catch (err) {
       await this.userRepository.delete(savedUser.id);

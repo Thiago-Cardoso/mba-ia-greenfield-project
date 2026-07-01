@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
-import { ChannelSlugTakenException } from './exceptions/channels.exceptions';
+import {
+  ChannelSlugInvalidException,
+  ChannelSlugTakenException,
+} from './exceptions/channels.exceptions';
 import { Channel } from './entities/channel.entity';
 import { slugify } from './slug.util';
 
@@ -24,6 +27,7 @@ export class ChannelsService {
     slug?: string,
   ): Promise<Channel> {
     const channelSlug = slug ?? slugify(name);
+    if (!channelSlug) throw new ChannelSlugInvalidException();
 
     try {
       const channel = this.channelRepository.create({

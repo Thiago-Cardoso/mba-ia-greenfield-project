@@ -11,3 +11,13 @@ export class ChannelNotFoundException extends DomainException {
     super('CHANNEL_NOT_FOUND', 404, 'Channel not found');
   }
 }
+
+export class ChannelSlugInvalidException extends DomainException {
+  constructor() {
+    super(
+      'CHANNEL_SLUG_INVALID',
+      422,
+      'Channel name does not produce a valid slug',
+    );
+  }
+}

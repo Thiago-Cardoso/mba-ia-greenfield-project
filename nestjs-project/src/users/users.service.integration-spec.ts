@@ -95,6 +95,16 @@ describe('UsersService (integration)', () => {
       });
       expect(count).toBe(0);
     });
+
+    it('uses "channel" as base slug when email prefix yields no alphanumeric chars', async () => {
+      const user = await usersService.createUserWithChannel(
+        '___@example.com',
+        'hashed',
+      );
+
+      expect(user.channels).toHaveLength(1);
+      expect(user.channels[0].slug).toMatch(/^channel-[a-z0-9]{6}$/);
+    });
   });
 
   describe('findByEmail', () => {
