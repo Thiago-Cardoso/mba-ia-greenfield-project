@@ -1,15 +1,17 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 0/8 completed
+**SIs:** 1/8 completed
 
 ### SI-03.1 — ChannelsModule (entity + service + controller)
 - **Status:** completed
-- **Tests:** 133 unit/integration + 55 e2e — todos passando
+- **Tests:** 135 unit/integration + 55 e2e — todos passando
 - **Observations:**
   - Channel entity migrada de OneToOne/nickname (Phase 02) para ManyToOne/slug (Phase 03) via psql ALTER TABLE manual (TypeORM CLI não compilava ESM).
   - E2e de channels usava endpoint errado (`POST /auth/confirm`) — corrigido para `GET /auth/confirm-email?token=`.
   - migrations.integration-spec.ts não dropava o tipo enum antes de re-executar as migrations — adicionado `DROP TYPE IF EXISTS "public"."verification_tokens_type_enum"` no beforeAll.
+  - **Fix pós-review:** `slugify()` retornava string vazia para inputs emoji/símbolo — adicionada `ChannelSlugInvalidException` (422) com guard em `ChannelsService.createChannel`.
+  - **Fix pós-review:** colisão de slug aleatório durante registro propagava 409 ao usuário — `UsersService` faz retry até 3x em `ChannelSlugTakenException` com fallback de base slug `'channel'` e sufixo padded.
 
 ### SI-03.2 — Infra Docker Compose (MinIO + Redis + worker)
 - **Status:** pending
