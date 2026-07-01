@@ -44,9 +44,9 @@ O projeto é um monorepo baseado em containers Docker. Cada subprojeto sobe sua 
 - **API** (NestJS 11) — regras de negócio, autenticação (JWT + refresh token rotation), envio de e-mails e acesso ao banco.
 - **Database** (PostgreSQL 17) — usuários, canais e tokens de autenticação.
 - **Email Service** (Mailpit) — captura os e-mails transacionais (confirmação de conta e recuperação de senha) em uma UI local.
-- **Video Worker** (FFmpeg) — processamento de vídeos *(planejado — Fase 03)*.
-- **Object Storage** (S3/MinIO) — arquivos de vídeo e thumbnails *(planejado — Fase 03)*.
-- **Message Queue** — fila de processamento de vídeos *(planejado — Fase 03)*.
+- **Object Storage** (MinIO/S3-compatible) — armazena arquivos de vídeo e thumbnails; upload multipart via presigned URLs.
+- **Message Queue** (Redis + BullMQ) — fila `video-processing` para tarefas assíncronas de transcodagem *(fila planejada — Fase 03 em andamento)*.
+- **Video Worker** (NestJS standalone + FFmpeg) — consome jobs da fila e processa vídeos *(planejado — Fase 03)*.
 
 O diagrama de arquitetura completo (C4) está em `docs/diagrams/software-arch.mermaid`.
 
@@ -54,12 +54,12 @@ O diagrama de arquitetura completo (C4) está em `docs/diagrams/software-arch.me
 
 Os dois subprojetos têm stacks Docker **separadas**. Suba primeiro o backend, rode as migrations e depois o frontend.
 
-### 1. Backend (NestJS + PostgreSQL + Mailpit)
+### 1. Backend (NestJS + PostgreSQL + MinIO + Redis + Mailpit)
 
 ```bash
 cd nestjs-project
 
-# Sobe API, banco e Mailpit
+# Sobe API, banco, MinIO, Redis e Mailpit
 docker compose up -d
 
 # Instala dependências (apenas na primeira vez)
@@ -70,6 +70,9 @@ docker compose exec nestjs-api npm run migration:run
 
 # Sobe o servidor de desenvolvimento em watch mode
 docker compose exec -d nestjs-api npm run start:dev
+
+# (opcional) Sobe também o worker de vídeo
+docker compose --profile worker up -d
 ```
 
 Serviços disponíveis:
@@ -78,8 +81,12 @@ Serviços disponíveis:
 |---------|-------------|
 | API NestJS | http://localhost:3000 |
 | PostgreSQL | `localhost:5432` (db/user/senha: `streamtube`) |
+| MinIO (Object Storage) | interno — sem porta exposta; healthcheck via `mc ready local` |
+| Redis | interno — sem porta exposta; healthcheck via `redis-cli ping` |
 | Mailpit (UI de e-mails) | http://localhost:8025 |
 | Swagger (opcional) | http://localhost:3000/api/docs — habilite com `SWAGGER_ENABLED=true` |
+
+> MinIO e Redis não expõem portas no host para evitar conflitos. Toda comunicação é interna via rede Docker.
 
 ### 2. Frontend (Next.js)
 
@@ -123,7 +130,7 @@ Sufixos: `*.test.ts(x)` (unitário), `*.integration.test.ts(x)` (Route Handlers 
 
 ## ✅ Funcionalidades implementadas
 
-**Fase 01 — Configuração base** e **Fase 02 — Autenticação** estão concluídas (backend + frontend).
+**Fase 01 — Configuração base** e **Fase 02 — Autenticação** estão concluídas (backend + frontend). **Fase 03 — Upload e Processamento de Vídeos** está em andamento (backend).
 
 ### Autenticação (Fase 02)
 
@@ -150,6 +157,16 @@ Telas e Route Handlers BFF (`next-frontend`):
 
 Segurança: senhas com **Argon2**, **JWT** com `JwtAuthGuard` global (opt-out via `@Public()`), **rotação de refresh token** com detecção de reuso, **rate limiting** (`ThrottlerGuard`) nos endpoints de auth, e sessão no navegador via **iron-session** (cookies HTTP-only).
 
+### Canais e Infra de Vídeo (Fase 03 — em andamento)
+
+Implementações concluídas até o momento:
+
+| Componente | O que faz |
+|------------|-----------|
+| `POST /channels` | Cria canal para usuário autenticado com slug gerado automaticamente |
+| Docker Compose (MinIO + Redis) | Object storage e broker de filas disponíveis no ambiente de desenvolvimento |
+| `StorageModule` | `S3Client` configurado para MinIO com `forcePathStyle`; `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort) e streaming com suporte a Range Requests (206) |
+
 ## 🛠️ Estrutura do Projeto
 
 ```
@@ -166,14 +183,16 @@ green-field-ia-project/
 │   ├── src/
 │   │   ├── auth/                        # Cadastro, login, JWT, refresh, reset de senha
 │   │   ├── users/                       # Entidade e serviço de usuários
-│   │   ├── channels/                    # Canal 1:1 por usuário (nickname do e-mail)
+│   │   ├── channels/                    # Canal por usuário (slug auto-gerado, many-to-one)
+│   │   ├── storage/                     # S3Client (MinIO) + StorageService (multipart + streaming)
 │   │   ├── mail/                        # Envio de e-mails (templates Handlebars)
 │   │   ├── common/                      # Filtros, pipes e exceptions de domínio
 │   │   ├── config/                      # Configs namespaced (Joi)
 │   │   └── database/                    # data-source, migrations e seeds
 │   ├── test/                            # Testes e2e
-│   ├── compose.yaml                     # Docker Compose (API + PostgreSQL + Mailpit)
-│   └── Dockerfile.dev
+│   ├── compose.yaml                     # Docker Compose (API + PostgreSQL + MinIO + Redis + Mailpit)
+│   ├── Dockerfile.dev
+│   └── Dockerfile.worker               # Worker de vídeo (node:22-alpine + ffmpeg, multi-stage)
 ├── next-frontend/                       # Frontend (Next.js 16, App Router)
 │   ├── app/                             # Rotas, layouts, páginas e Route Handlers BFF
 │   ├── components/                      # Componentes de auth, UI (shadcn) e ícones
@@ -194,7 +213,7 @@ green-field-ia-project/
 |------|-----------|--------|
 | **01** | Configuração Base do Projeto | ✅ Concluída |
 | **02** | Cadastro, Login e Gerenciamento de Conta | ✅ Concluída |
-| **03** | Upload e Processamento de Vídeos | ⏳ Planejada |
+| **03** | Upload e Processamento de Vídeos | 🔄 Em andamento |
 | **04** | Gerenciamento de Vídeos e Canal | ⏳ Planejada |
 | **05** | Página de Visualização do Vídeo | ⏳ Planejada |
 | **06** | Interações Sociais (Likes, Comentários, Inscrições) | ⏳ Planejada |
@@ -207,8 +226,10 @@ Detalhes completos em `docs/project-plan.md`.
 | Camada | Tecnologia |
 |--------|------------|
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, React Hook Form + Zod, iron-session, openapi-fetch |
-| Backend | NestJS 11, TypeScript, TypeORM, JWT, Argon2, Mailer (Handlebars) |
+| Backend | NestJS 11, TypeScript, TypeORM, JWT, Argon2, Mailer (Handlebars), AWS SDK v3 |
 | Banco de Dados | PostgreSQL 17 |
+| Object Storage | MinIO (S3-compatible) |
+| Message Queue | Redis 7 + BullMQ |
 | E-mail (dev) | Mailpit |
 | Containerização | Docker, Docker Compose |
 | Testes | Jest, Supertest (backend); Vitest, MSW, Playwright (frontend) |
