@@ -27,4 +27,6 @@ export const envValidationSchema = Joi.object({
   MINIO_REGION: Joi.string().default('us-east-1'),
   VIDEO_BUCKET: Joi.string().default('streamtube-videos'),
   THUMBNAIL_BUCKET: Joi.string().default('streamtube-thumbnails'),
+  REDIS_HOST: Joi.string().default('redis'),
+  REDIS_PORT: Joi.number().port().default(6379),
 });

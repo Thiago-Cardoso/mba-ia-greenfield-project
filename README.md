@@ -166,6 +166,7 @@ Implementações concluídas até o momento:
 | `POST /channels` | Cria canal para usuário autenticado com slug gerado automaticamente |
 | Docker Compose (MinIO + Redis) | Object storage e broker de filas disponíveis no ambiente de desenvolvimento |
 | `StorageModule` | `S3Client` configurado para MinIO com `forcePathStyle`; `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort) e streaming com suporte a Range Requests (206) |
+| `QueueModule` | `BullModule` configurado com Redis via `forRootAsync`; fila `video-processing` disponível para injeção via `@InjectQueue('video-processing')` em qualquer módulo que importe `QueueModule` |
 
 ## 🛠️ Estrutura do Projeto
 

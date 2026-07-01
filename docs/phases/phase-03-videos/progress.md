@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 1/8 completed
+**SIs:** 4/8 completed
 
 ### SI-03.1 — ChannelsModule (entity + service + controller)
 - **Status:** completed
@@ -29,9 +29,12 @@
   - Arquivo de 500 bytes no teste de Range usa multipart (mínimo 5 MB por parte); MinIO aceita partes menores neste contexto de teste.
 
 ### SI-03.4 — QueueModule (BullMQ + Redis)
-- **Status:** pending
-- **Tests:** pending
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 2 passing (unit — compilação do módulo + fila `video-processing` disponível para injeção)
+- **Observations:**
+  - Pacotes instalados: `@nestjs/bullmq`, `bullmq`, `ioredis`.
+  - `QueueModule` usa `BullModule.forRootAsync` com `ConfigModule.forFeature(queueConfig)` — auto-suficiente em contexto standalone (worker).
+  - `REDIS_HOST` e `REDIS_PORT` adicionados ao `env.validation.ts` com defaults `'redis'` e `6379`.
 
 ### SI-03.5 — VideoModule (entity + service)
 - **Status:** pending

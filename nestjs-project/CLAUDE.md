@@ -161,6 +161,15 @@ Whenever possible, prefer storing only the bare address in `.env` and composing 
 
 `tsc` (and therefore `nest build`) only emits compiled `.ts` files to `dist/`. Any non-TypeScript runtime asset — Handlebars templates (`.hbs`), JSON fixtures, static config files, etc. — must be declared in `nest-cli.json` under `compilerOptions.assets` (with `watchAssets: true` for dev). Without that, the file exists in `src/` but is missing in `dist/` and runtime fails only after build.
 
+## Modules implementados (Fase 03)
+
+| Módulo | Pacotes | O que faz |
+|--------|---------|-----------|
+| `StorageModule` | `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` | `S3Client` configurado via `ConfigModule.forFeature(storageConfig)` para MinIO (`forcePathStyle: true`); `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort) e streaming com suporte a Range Requests |
+| `QueueModule` | `@nestjs/bullmq`, `bullmq`, `ioredis` | `BullModule` configurado via `forRootAsync` com Redis (host/port via `queueConfig`); expõe a fila `video-processing` para injeção via `@InjectQueue('video-processing')` em qualquer módulo que importe `QueueModule` |
+
+Ambos os módulos usam `ConfigModule.forFeature(config)` internamente — auto-suficientes em contexto standalone (worker).
+
 ## Architecture
 
 NestJS with standard module structure. Source lives in `src/`, compiled output in `dist/`.
