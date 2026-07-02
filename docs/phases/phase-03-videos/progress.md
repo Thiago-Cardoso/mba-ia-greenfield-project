@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 5/8 completed
+**SIs:** 7/8 completed
 
 ### SI-03.1 — ChannelsModule (entity + service + controller)
 - **Status:** completed
@@ -46,14 +46,25 @@
   - Limpeza de tabelas no `afterAll` do integration spec precisa seguir ordem de FK: `videos → refresh_tokens → verification_tokens → channels → users`.
 
 ### SI-03.6 — UploadController (fluxo multipart)
-- **Status:** pending
-- **Tests:** pending
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 178 unit passing + 66 e2e passing (pós code-review)
+- **Observations:**
+  - `assertOwnership` narrowed to catch only `ChannelNotFoundException` (not all errors).
+  - `completeUpload` ordering fixed: `queue.add` before `updateStatus`.
+  - `initiateUpload` gained compensation logic (S3 abort + video delete on failure).
+  - `abortUpload` now swallows S3 failures and always deletes the video.
+  - `storageKeyFor()` private method extracted as single source of truth for storage key pattern.
+  - `VideoNotInProcessingException` and related state guard moved to SI-03.8 (out of scope).
 
 ### SI-03.7 — VideoController (metadata + streaming + download)
-- **Status:** pending
-- **Tests:** pending
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 178 unit passing + 66 e2e passing
+- **Observations:**
+  - `JwtAuthGuard` extended to attach `request.user` on `@Public()` routes when a valid Bearer token is present — enables owner-only access to non-ready videos on the metadata endpoint without requiring auth for anonymous callers.
+  - `VideosService` gained `getPublicVideoBySlug` (status-gate with optional ownership check) and `getReadyVideoBySlug` (throws `VideoNotReadyException` for non-ready videos).
+  - `StorageService` gained `generatePresignedGetUrl` for thumbnail URL generation.
+  - `VideoController` uses `@Res({ passthrough: true })` to set 206 status and `Content-Range` header conditionally on Range requests, while still returning a `StreamableFile`.
+  - E2E test uploads a 2 KB buffer to MinIO via raw `S3Client.send(PutObjectCommand)` obtained from the test module fixture.
 
 ### SI-03.8 — Video worker (NestJS standalone + FFmpeg)
 - **Status:** pending
