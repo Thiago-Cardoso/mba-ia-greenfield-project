@@ -27,7 +27,7 @@ export class Video {
   @Column({ type: 'uuid' })
   channel_id: string;
 
-  @ManyToOne(() => Channel)
+  @ManyToOne(() => Channel, (channel) => channel.videos)
   @JoinColumn({ name: 'channel_id' })
   channel: Channel;
 

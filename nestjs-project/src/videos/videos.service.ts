@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Video, VideoStatus } from './entities/video.entity';
-import { VideoNotFoundException } from './exceptions/videos.exceptions';
+import {
+  VideoNotFoundException,
+  VideoNotInProcessingException,
+} from './exceptions/videos.exceptions';
 import { generateVideoSlug } from './slug.util';
 
 @Injectable()
@@ -41,7 +44,8 @@ export class VideosService {
   }
 
   async updateStatus(id: string, status: VideoStatus): Promise<void> {
-    await this.videoRepository.update(id, { status });
+    const result = await this.videoRepository.update(id, { status });
+    if ((result.affected ?? 0) === 0) throw new VideoNotFoundException();
   }
 
   async updateAfterProcessing(
@@ -54,6 +58,9 @@ export class VideosService {
     },
   ): Promise<void> {
     const video = await this.findByIdOrFail(id);
+    if (video.status !== VideoStatus.PROCESSING) {
+      throw new VideoNotInProcessingException();
+    }
     video.storage_key = data.storageKey;
     video.thumbnail_key = data.thumbnailKey;
     video.duration_seconds = data.durationSeconds;

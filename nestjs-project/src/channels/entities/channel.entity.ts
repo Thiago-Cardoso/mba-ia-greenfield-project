@@ -4,9 +4,11 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import type { Video } from '../../videos/entities/video.entity';
 
 @Entity('channels')
 export class Channel {
@@ -28,4 +30,7 @@ export class Channel {
   @ManyToOne(() => User, (user) => user.channels)
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @OneToMany('Video', (video: Video) => video.channel)
+  videos: Video[];
 }
