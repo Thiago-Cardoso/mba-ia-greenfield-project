@@ -44,6 +44,7 @@ describe('POST /channels (e2e)', () => {
     // Clean state before setting up test user
     await dataSource.query('DELETE FROM "refresh_tokens"');
     await dataSource.query('DELETE FROM "verification_tokens"');
+    await dataSource.query('DELETE FROM "videos"');
     await dataSource.query('DELETE FROM "channels"');
     await dataSource.query('DELETE FROM "users"');
 
@@ -80,6 +81,7 @@ describe('POST /channels (e2e)', () => {
   });
 
   beforeEach(async () => {
+    await dataSource.query('DELETE FROM "videos"');
     await dataSource.query('DELETE FROM "channels"');
     throttlerStorage.storage.clear();
   });

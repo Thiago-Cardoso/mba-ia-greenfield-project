@@ -3,11 +3,13 @@ import { User } from '../users/entities/user.entity';
 import { Channel } from '../channels/entities/channel.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { VerificationToken } from '../auth/entities/verification-token.entity';
+import { Video } from '../videos/entities/video.entity';
 import { CreateUsersAndChannels1775687773260 } from './migrations/1775687773260-CreateUsersAndChannels';
 import { CreateAuthTokens1777579850478 } from './migrations/1777579850478-CreateAuthTokens';
 import { createTestDataSource } from '../test/create-test-data-source';
 
 const MANAGED_TABLES = [
+  'videos',
   'users',
   'channels',
   'refresh_tokens',
@@ -19,7 +21,7 @@ describe('Database migrations (integration)', () => {
 
   beforeAll(async () => {
     dataSource = createTestDataSource(
-      [User, Channel, RefreshToken, VerificationToken],
+      [User, Channel, RefreshToken, VerificationToken, Video],
       {
         synchronize: false,
         migrations: [
@@ -39,6 +41,7 @@ describe('Database migrations (integration)', () => {
     await dataSource.query(
       `DROP TYPE IF EXISTS "public"."verification_tokens_type_enum"`,
     );
+    await dataSource.query(`DROP TYPE IF EXISTS "public"."videos_status_enum"`);
   });
 
   afterAll(async () => {
@@ -54,6 +57,7 @@ describe('Database migrations (integration)', () => {
       Channel,
       RefreshToken,
       VerificationToken,
+      Video,
     ]);
     await restoreDs.initialize();
     await restoreDs.destroy();

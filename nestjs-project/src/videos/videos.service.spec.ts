@@ -141,5 +141,16 @@ describe('VideosService', () => {
       expect(calledId).toBe('video-uuid');
       expect(calledData.status).toBe(VideoStatus.PROCESSING);
     });
+
+    it('throws VideoNotFoundException when video does not exist', async () => {
+      const repo = makeRepo({
+        update: jest.fn().mockResolvedValue({ affected: 0 }),
+      });
+      const service = new VideosService(repo);
+
+      await expect(
+        service.updateStatus('unknown-id', VideoStatus.PROCESSING),
+      ).rejects.toThrow(VideoNotFoundException);
+    });
   });
 });

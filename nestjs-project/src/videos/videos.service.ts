@@ -15,7 +15,7 @@ export class VideosService {
   async createDraftVideo(
     channelId: string,
     title: string,
-    uploadId: string,
+    uploadId: string | null = null,
   ): Promise<Video> {
     const slug = generateVideoSlug();
     const video = this.videoRepository.create({
@@ -26,6 +26,17 @@ export class VideosService {
       status: VideoStatus.DRAFT,
     });
     return this.videoRepository.save(video);
+  }
+
+  async setUploadId(id: string, uploadId: string): Promise<void> {
+    const result = await this.videoRepository.update(id, {
+      upload_id: uploadId,
+    });
+    if ((result.affected ?? 0) === 0) throw new VideoNotFoundException();
+  }
+
+  async deleteVideo(id: string): Promise<void> {
+    await this.videoRepository.delete({ id });
   }
 
   async findByIdOrFail(id: string): Promise<Video> {
@@ -41,7 +52,8 @@ export class VideosService {
   }
 
   async updateStatus(id: string, status: VideoStatus): Promise<void> {
-    await this.videoRepository.update(id, { status });
+    const result = await this.videoRepository.update(id, { status });
+    if ((result.affected ?? 0) === 0) throw new VideoNotFoundException();
   }
 
   async updateAfterProcessing(
