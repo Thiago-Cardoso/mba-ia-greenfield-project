@@ -23,3 +23,13 @@ export class VideoNotInDraftException extends DomainException {
     super('VIDEO_NOT_IN_DRAFT', 409, 'Video is not in draft status');
   }
 }
+
+export class VideoStorageCorruptException extends DomainException {
+  constructor() {
+    super(
+      'VIDEO_STORAGE_CORRUPT',
+      500,
+      'Video storage key is missing for a ready video',
+    );
+  }
+}

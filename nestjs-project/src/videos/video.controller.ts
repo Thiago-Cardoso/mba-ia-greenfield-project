@@ -188,7 +188,10 @@ export class VideoController {
     const asciiName = `${video.title}.mp4`
       .replace(/[^\x20-\x7E]/g, '_')
       .replace(/"/g, "'");
-    const encodedName = encodeURIComponent(`${video.title}.mp4`);
+    const encodedName = encodeURIComponent(`${video.title}.mp4`).replace(
+      /'/g,
+      '%27',
+    );
     res.set(
       'Content-Disposition',
       `attachment; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,

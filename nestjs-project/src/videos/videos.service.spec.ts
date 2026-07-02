@@ -4,6 +4,7 @@ import {
   VideoAccessDeniedException,
   VideoNotFoundException,
   VideoNotReadyException,
+  VideoStorageCorruptException,
 } from './exceptions/videos.exceptions';
 import { VideosService } from './videos.service';
 
@@ -19,6 +20,7 @@ function makeVideo(overrides: Partial<Video> = {}): Video {
   v.thumbnail_key = null;
   v.duration_seconds = null;
   v.metadata = null;
+  v.channel = { user_id: 'owner-id' } as Video['channel'];
   v.created_at = new Date();
   v.updated_at = new Date();
   return Object.assign(v, overrides);
@@ -151,6 +153,19 @@ describe('VideosService', () => {
       );
     });
 
+    it('throws VideoNotFoundException when video has no channel (orphaned FK)', async () => {
+      const video = makeVideo({
+        status: VideoStatus.READY,
+        channel: null as unknown as Video['channel'],
+      });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      await expect(service.getPublicVideoBySlug('abc12345678')).rejects.toThrow(
+        VideoNotFoundException,
+      );
+    });
+
     it('throws VideoAccessDeniedException for non-ready video with no userId', async () => {
       const video = makeVideo({ status: VideoStatus.PROCESSING });
       const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
@@ -224,13 +239,13 @@ describe('VideosService', () => {
       );
     });
 
-    it('throws VideoNotReadyException when video is READY but storage_key is null', async () => {
+    it('throws VideoStorageCorruptException when video is READY but storage_key is null', async () => {
       const video = makeVideo({ status: VideoStatus.READY, storage_key: null });
       const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
       const service = new VideosService(repo);
 
       await expect(service.getReadyVideoBySlug('abc12345678')).rejects.toThrow(
-        VideoNotReadyException,
+        VideoStorageCorruptException,
       );
     });
   });

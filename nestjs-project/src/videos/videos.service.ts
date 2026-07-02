@@ -6,6 +6,7 @@ import {
   VideoAccessDeniedException,
   VideoNotFoundException,
   VideoNotReadyException,
+  VideoStorageCorruptException,
 } from './exceptions/videos.exceptions';
 import { generateVideoSlug } from './slug.util';
 
@@ -65,7 +66,7 @@ export class VideosService {
       where: { slug },
       relations: ['channel'],
     });
-    if (!video) throw new VideoNotFoundException();
+    if (!video || !video.channel) throw new VideoNotFoundException();
 
     if (video.status !== VideoStatus.READY) {
       if (!userId || video.channel.user_id !== userId) {
@@ -79,7 +80,7 @@ export class VideosService {
   async getReadyVideoBySlug(slug: string): Promise<Video> {
     const video = await this.findBySlugOrFail(slug);
     if (video.status !== VideoStatus.READY) throw new VideoNotReadyException();
-    if (!video.storage_key) throw new VideoNotReadyException();
+    if (!video.storage_key) throw new VideoStorageCorruptException();
     return video;
   }
 
