@@ -7,6 +7,7 @@ import {
   S3Client,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Readable } from 'node:stream';
 import { PRESIGNED_URL_EXPIRES_IN } from './storage.constants';
@@ -103,6 +104,24 @@ export class StorageService {
       new GetObjectCommand({ Bucket: bucket, Key: key }),
       { expiresIn },
     );
+  }
+
+  async putObject(
+    bucket: string,
+    key: string,
+    body: Readable,
+    contentType: string,
+  ): Promise<void> {
+    const upload = new Upload({
+      client: this.s3,
+      params: {
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      },
+    });
+    await upload.done();
   }
 
   async getObjectStream(
