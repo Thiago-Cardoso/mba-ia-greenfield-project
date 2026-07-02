@@ -167,6 +167,7 @@ Implementações concluídas até o momento:
 | Docker Compose (MinIO + Redis) | Object storage e broker de filas disponíveis no ambiente de desenvolvimento |
 | `StorageModule` | `S3Client` configurado para MinIO com `forcePathStyle`; `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort) e streaming com suporte a Range Requests (206) |
 | `QueueModule` | `BullModule` configurado com Redis via `forRootAsync`; fila `video-processing` disponível para injeção via `@InjectQueue('video-processing')` em qualquer módulo que importe `QueueModule` |
+| `VideosModule` / `VideosService` | Entidade `Video` (status enum, slug único de 11 chars, FK para canal, metadados jsonb); `VideosService` expõe criação de rascunho, busca por id/slug, atualização de status e atualização pós-processamento (storage key, thumbnail, duração, metadados) |
 
 ## 🛠️ Estrutura do Projeto
 

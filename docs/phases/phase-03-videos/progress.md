@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 4/8 completed
+**SIs:** 5/8 completed
 
 ### SI-03.1 — ChannelsModule (entity + service + controller)
 - **Status:** completed
@@ -37,9 +37,13 @@
   - `REDIS_HOST` e `REDIS_PORT` adicionados ao `env.validation.ts` com defaults `'redis'` e `6379`.
 
 ### SI-03.5 — VideoModule (entity + service)
-- **Status:** pending
-- **Tests:** pending
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 11 passing (7 unit — VideosService; 4 integration — Video entity)
+- **Observations:**
+  - `nanoid` v5 é ESM-only e o projeto compila para CJS — implementado utilitário local `slug.util.ts` com `crypto.randomBytes` e mesmo alfabeto URL-safe do nanoid.
+  - Migration gerada via CLI como ALTER (tabela `videos` já existia de sessão anterior); migration `AlterChannelsForPhase03` foi marcada como executada manualmente no DB (já havia sido aplicada via psql em SI-03.1).
+  - `updateAfterProcessing` usa `findByIdOrFail` + `save` em vez de `update()` — evita problema de typing do TypeORM com `_QueryDeepPartialEntity<Record<string, unknown> | null>` em coluna jsonb.
+  - Limpeza de tabelas no `afterAll` do integration spec precisa seguir ordem de FK: `videos → refresh_tokens → verification_tokens → channels → users`.
 
 ### SI-03.6 — UploadController (fluxo multipart)
 - **Status:** pending
