@@ -175,7 +175,7 @@ describe('UploadService', () => {
       );
     });
 
-    it('throws ChannelNotFoundException when channel does not belong to user', async () => {
+    it('throws VideoAccessDeniedException when channel does not belong to user', async () => {
       const { service } = makeService({
         channels: makeChannels({
           findChannelForUser: jest
@@ -191,7 +191,65 @@ describe('UploadService', () => {
           fileSize: 1,
           contentType: 'video/mp4',
         }),
-      ).rejects.toBeInstanceOf(ChannelNotFoundException);
+      ).rejects.toBeInstanceOf(VideoAccessDeniedException);
+    });
+
+    it('propagates infrastructure errors from ownership check without masking them as 403', async () => {
+      const dbError = new Error('Connection timeout');
+      const { service } = makeService({
+        channels: makeChannels({
+          findChannelForUser: jest.fn().mockRejectedValue(dbError),
+        }),
+      });
+
+      await expect(
+        service.initiateUpload('user-1', {
+          channelId: 'channel-uuid',
+          title: 'T',
+          fileSize: 1,
+          contentType: 'video/mp4',
+        }),
+      ).rejects.toBe(dbError);
+    });
+
+    it('cleans up draft video and aborts S3 session when setUploadId fails', async () => {
+      const video = makeVideo({ id: 'vid-1' });
+      const abortMultipartUpload = jest.fn().mockResolvedValue(undefined);
+      const deleteVideo = jest.fn().mockResolvedValue(undefined);
+      const dbError = new Error('DB write failed');
+
+      const { service } = makeService({
+        videos: makeVideos({
+          createDraftVideo: jest.fn().mockResolvedValue(video),
+          setUploadId: jest.fn().mockRejectedValue(dbError),
+          deleteVideo,
+        }),
+        storage: makeStorage({
+          initiateMultipartUpload: jest.fn().mockResolvedValue('s3-upload-id'),
+          abortMultipartUpload,
+        }),
+        channels: makeChannels({
+          findChannelForUser: jest
+            .fn()
+            .mockResolvedValue({ id: 'channel-uuid' }),
+        }),
+      });
+
+      await expect(
+        service.initiateUpload('user-1', {
+          channelId: 'channel-uuid',
+          title: 'T',
+          fileSize: 1,
+          contentType: 'video/mp4',
+        }),
+      ).rejects.toBe(dbError);
+
+      expect(abortMultipartUpload).toHaveBeenCalledWith(
+        'streamtube-videos',
+        'vid-1/original.mp4',
+        's3-upload-id',
+      );
+      expect(deleteVideo).toHaveBeenCalledWith('vid-1');
     });
   });
 

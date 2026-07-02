@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module';
 import { MailService } from '../src/mail/mail.service';
 import { DomainExceptionFilter } from '../src/common/filters/domain-exception.filter';
 import { ValidationExceptionFilter } from '../src/common/filters/validation-exception.filter';
+import { cleanAllTables } from '../src/test/create-test-data-source';
 
 async function registerAndLogin(
   app: INestApplication<App>,
@@ -68,11 +69,7 @@ describe('Video Upload (e2e)', () => {
     throttlerStorage =
       moduleFixture.get<ThrottlerStorageService>(ThrottlerStorage);
 
-    await dataSource.query('DELETE FROM "videos"');
-    await dataSource.query('DELETE FROM "refresh_tokens"');
-    await dataSource.query('DELETE FROM "verification_tokens"');
-    await dataSource.query('DELETE FROM "channels"');
-    await dataSource.query('DELETE FROM "users"');
+    await cleanAllTables(dataSource);
 
     accessTokenA = await registerAndLogin(app, 'upload_user_a@example.com');
 

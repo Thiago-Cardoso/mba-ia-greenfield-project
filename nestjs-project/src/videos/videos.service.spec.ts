@@ -1,9 +1,6 @@
 import { Repository } from 'typeorm';
 import { Video, VideoStatus } from './entities/video.entity';
-import {
-  VideoNotFoundException,
-  VideoNotInProcessingException,
-} from './exceptions/videos.exceptions';
+import { VideoNotFoundException } from './exceptions/videos.exceptions';
 import { VideosService } from './videos.service';
 
 function makeVideo(overrides: Partial<Video> = {}): Video {
@@ -154,81 +151,6 @@ describe('VideosService', () => {
       await expect(
         service.updateStatus('unknown-id', VideoStatus.PROCESSING),
       ).rejects.toThrow(VideoNotFoundException);
-    });
-  });
-
-  describe('updateAfterProcessing', () => {
-    it('updates storage fields and sets status to READY', async () => {
-      const video = makeVideo({ status: VideoStatus.PROCESSING });
-      const repo = makeRepo({
-        findOne: jest.fn().mockResolvedValue(video),
-        save: jest.fn().mockImplementation((v: Video) => Promise.resolve(v)),
-      });
-      const service = new VideosService(repo);
-
-      await service.updateAfterProcessing('video-uuid', {
-        storageKey: 'videos/abc.mp4',
-        thumbnailKey: 'thumbs/abc.jpg',
-        durationSeconds: 120.5,
-        metadata: { codec: 'h264' },
-      });
-
-      const [[savedVideo]] = (repo.save as jest.Mock).mock.calls as [Video][];
-      expect(savedVideo.storage_key).toBe('videos/abc.mp4');
-      expect(savedVideo.thumbnail_key).toBe('thumbs/abc.jpg');
-      expect(savedVideo.duration_seconds).toBe(120.5);
-      expect(savedVideo.metadata).toEqual({ codec: 'h264' });
-      expect(savedVideo.status).toBe(VideoStatus.READY);
-    });
-
-    it('throws VideoNotFoundException when video does not exist', async () => {
-      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(null) });
-      const service = new VideosService(repo);
-
-      await expect(
-        service.updateAfterProcessing('unknown-id', {
-          storageKey: 'videos/abc.mp4',
-          thumbnailKey: 'thumbs/abc.jpg',
-          durationSeconds: 120.5,
-          metadata: {},
-        }),
-      ).rejects.toThrow(VideoNotFoundException);
-    });
-
-    it('throws VideoNotInProcessingException when video is not in PROCESSING state', async () => {
-      const video = makeVideo({ status: VideoStatus.READY });
-      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
-      const service = new VideosService(repo);
-
-      await expect(
-        service.updateAfterProcessing('video-uuid', {
-          storageKey: 'videos/abc.mp4',
-          thumbnailKey: 'thumbs/abc.jpg',
-          durationSeconds: 120.5,
-          metadata: {},
-        }),
-      ).rejects.toThrow(VideoNotInProcessingException);
-    });
-
-    it('does not save when video is in wrong state', async () => {
-      const video = makeVideo({ status: VideoStatus.DRAFT });
-      const repo = makeRepo({
-        findOne: jest.fn().mockResolvedValue(video),
-        save: jest.fn(),
-      });
-      const service = new VideosService(repo);
-
-      await expect(
-        service.updateAfterProcessing('video-uuid', {
-          storageKey: 'videos/abc.mp4',
-          thumbnailKey: 'thumbs/abc.jpg',
-          durationSeconds: 10,
-          metadata: {},
-        }),
-      ).rejects.toThrow(VideoNotInProcessingException);
-
-      const saveCalls = (repo.save as jest.Mock).mock.calls as unknown[];
-      expect(saveCalls).toHaveLength(0);
     });
   });
 });
