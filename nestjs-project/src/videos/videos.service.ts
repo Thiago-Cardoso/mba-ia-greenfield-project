@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Video, VideoStatus } from './entities/video.entity';
-import { VideoNotFoundException } from './exceptions/videos.exceptions';
+import {
+  VideoAccessDeniedException,
+  VideoNotFoundException,
+  VideoNotReadyException,
+  VideoStorageCorruptException,
+} from './exceptions/videos.exceptions';
 import { generateVideoSlug } from './slug.util';
 
 @Injectable()
@@ -54,6 +59,29 @@ export class VideosService {
   async updateStatus(id: string, status: VideoStatus): Promise<void> {
     const result = await this.videoRepository.update(id, { status });
     if ((result.affected ?? 0) === 0) throw new VideoNotFoundException();
+  }
+
+  async getPublicVideoBySlug(slug: string, userId?: string): Promise<Video> {
+    const video = await this.videoRepository.findOne({
+      where: { slug },
+      relations: ['channel'],
+    });
+    if (!video || !video.channel) throw new VideoNotFoundException();
+
+    if (video.status !== VideoStatus.READY) {
+      if (!userId || video.channel.user_id !== userId) {
+        throw new VideoAccessDeniedException();
+      }
+    }
+
+    return video;
+  }
+
+  async getReadyVideoBySlug(slug: string): Promise<Video> {
+    const video = await this.findBySlugOrFail(slug);
+    if (video.status !== VideoStatus.READY) throw new VideoNotReadyException();
+    if (!video.storage_key) throw new VideoStorageCorruptException();
+    return video;
   }
 
   async updateAfterProcessing(

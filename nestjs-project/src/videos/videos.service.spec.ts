@@ -1,6 +1,11 @@
 import { Repository } from 'typeorm';
 import { Video, VideoStatus } from './entities/video.entity';
-import { VideoNotFoundException } from './exceptions/videos.exceptions';
+import {
+  VideoAccessDeniedException,
+  VideoNotFoundException,
+  VideoNotReadyException,
+  VideoStorageCorruptException,
+} from './exceptions/videos.exceptions';
 import { VideosService } from './videos.service';
 
 function makeVideo(overrides: Partial<Video> = {}): Video {
@@ -15,6 +20,7 @@ function makeVideo(overrides: Partial<Video> = {}): Video {
   v.thumbnail_key = null;
   v.duration_seconds = null;
   v.metadata = null;
+  v.channel = { user_id: 'owner-id' } as Video['channel'];
   v.created_at = new Date();
   v.updated_at = new Date();
   return Object.assign(v, overrides);
@@ -123,6 +129,123 @@ describe('VideosService', () => {
 
       await expect(service.findByIdOrFail('unknown-id')).rejects.toThrow(
         VideoNotFoundException,
+      );
+    });
+  });
+
+  describe('getPublicVideoBySlug', () => {
+    it('returns a ready video to anonymous callers', async () => {
+      const video = makeVideo({ status: VideoStatus.READY });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      const result = await service.getPublicVideoBySlug('abc12345678');
+
+      expect(result).toBe(video);
+    });
+
+    it('throws VideoNotFoundException when slug does not match any video', async () => {
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(null) });
+      const service = new VideosService(repo);
+
+      await expect(service.getPublicVideoBySlug('notfound')).rejects.toThrow(
+        VideoNotFoundException,
+      );
+    });
+
+    it('throws VideoNotFoundException when video has no channel (orphaned FK)', async () => {
+      const video = makeVideo({
+        status: VideoStatus.READY,
+        channel: null as unknown as Video['channel'],
+      });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      await expect(service.getPublicVideoBySlug('abc12345678')).rejects.toThrow(
+        VideoNotFoundException,
+      );
+    });
+
+    it('throws VideoAccessDeniedException for non-ready video with no userId', async () => {
+      const video = makeVideo({ status: VideoStatus.PROCESSING });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      await expect(service.getPublicVideoBySlug('abc12345678')).rejects.toThrow(
+        VideoAccessDeniedException,
+      );
+    });
+
+    it('throws VideoAccessDeniedException for non-ready video when userId does not match owner', async () => {
+      const video = makeVideo({
+        status: VideoStatus.PROCESSING,
+        channel: { user_id: 'owner-id' } as Video['channel'],
+      });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      await expect(
+        service.getPublicVideoBySlug('abc12345678', 'other-user'),
+      ).rejects.toThrow(VideoAccessDeniedException);
+    });
+
+    it('returns non-ready video when userId matches the channel owner', async () => {
+      const video = makeVideo({
+        status: VideoStatus.PROCESSING,
+        channel: { user_id: 'owner-id' } as Video['channel'],
+      });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      const result = await service.getPublicVideoBySlug(
+        'abc12345678',
+        'owner-id',
+      );
+
+      expect(result).toBe(video);
+    });
+  });
+
+  describe('getReadyVideoBySlug', () => {
+    it('returns the video when status is ready and storage_key is set', async () => {
+      const video = makeVideo({
+        status: VideoStatus.READY,
+        storage_key: 'uuid/original.mp4',
+      });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      const result = await service.getReadyVideoBySlug('abc12345678');
+
+      expect(result).toBe(video);
+    });
+
+    it('throws VideoNotFoundException when slug does not match any video', async () => {
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(null) });
+      const service = new VideosService(repo);
+
+      await expect(service.getReadyVideoBySlug('notfound')).rejects.toThrow(
+        VideoNotFoundException,
+      );
+    });
+
+    it('throws VideoNotReadyException when video status is not ready', async () => {
+      const video = makeVideo({ status: VideoStatus.PROCESSING });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      await expect(service.getReadyVideoBySlug('abc12345678')).rejects.toThrow(
+        VideoNotReadyException,
+      );
+    });
+
+    it('throws VideoStorageCorruptException when video is READY but storage_key is null', async () => {
+      const video = makeVideo({ status: VideoStatus.READY, storage_key: null });
+      const repo = makeRepo({ findOne: jest.fn().mockResolvedValue(video) });
+      const service = new VideosService(repo);
+
+      await expect(service.getReadyVideoBySlug('abc12345678')).rejects.toThrow(
+        VideoStorageCorruptException,
       );
     });
   });

@@ -7,6 +7,7 @@ import { QueueModule } from '../queue/queue.module';
 import { ChannelsModule } from '../channels/channels.module';
 import { Video } from './entities/video.entity';
 import { VideosService } from './videos.service';
+import { VideoController } from './video.controller';
 import { UploadController } from './upload/upload.controller';
 import { UploadService } from './upload/upload.service';
 
@@ -18,7 +19,7 @@ import { UploadService } from './upload/upload.service';
     QueueModule,
     ChannelsModule,
   ],
-  controllers: [UploadController],
+  controllers: [UploadController, VideoController],
   providers: [VideosService, UploadService],
   exports: [VideosService],
 })

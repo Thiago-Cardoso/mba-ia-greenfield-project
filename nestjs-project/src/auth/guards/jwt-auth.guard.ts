@@ -22,7 +22,6 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
 
     const request = context
       .switchToHttp()
@@ -30,6 +29,7 @@ export class JwtAuthGuard implements CanActivate {
     const authHeader = request.headers?.authorization;
 
     if (!authHeader || !authHeader.startsWith(BEARER_PREFIX)) {
+      if (isPublic) return true;
       throw new UnauthorizedException();
     }
 
@@ -38,9 +38,10 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
       request.user = payload;
-      return true;
     } catch {
-      throw new UnauthorizedException();
+      if (!isPublic) throw new UnauthorizedException();
     }
+
+    return true;
   }
 }

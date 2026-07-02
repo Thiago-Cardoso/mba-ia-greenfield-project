@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Readable } from 'node:stream';
+import { PRESIGNED_URL_EXPIRES_IN } from './storage.constants';
 
 export interface CompletedPart {
   PartNumber: number;
@@ -57,7 +58,7 @@ export class StorageService {
         UploadId: uploadId,
         PartNumber: partNumber,
       }),
-      { expiresIn: 3600 },
+      { expiresIn: PRESIGNED_URL_EXPIRES_IN },
     );
   }
 
@@ -89,6 +90,18 @@ export class StorageService {
         Key: key,
         UploadId: uploadId,
       }),
+    );
+  }
+
+  async generatePresignedGetUrl(
+    bucket: string,
+    key: string,
+    expiresIn = PRESIGNED_URL_EXPIRES_IN,
+  ): Promise<string> {
+    return getSignedUrl(
+      this.s3,
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
+      { expiresIn },
     );
   }
 
