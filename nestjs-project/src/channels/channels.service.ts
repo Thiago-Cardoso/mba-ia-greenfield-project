@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import {
+  ChannelNotFoundException,
   ChannelSlugInvalidException,
   ChannelSlugTakenException,
 } from './exceptions/channels.exceptions';
@@ -20,6 +21,17 @@ export class ChannelsService {
     @InjectRepository(Channel)
     private readonly channelRepository: Repository<Channel>,
   ) {}
+
+  async findChannelForUser(
+    channelId: string,
+    userId: string,
+  ): Promise<Channel> {
+    const channel = await this.channelRepository.findOne({
+      where: { id: channelId, user_id: userId },
+    });
+    if (!channel) throw new ChannelNotFoundException();
+    return channel;
+  }
 
   async createChannel(
     userId: string,
