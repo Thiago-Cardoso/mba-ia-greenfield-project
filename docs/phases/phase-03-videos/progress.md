@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
-**Status:** in_progress
-**SIs:** 7/8 completed
+**Status:** completed
+**SIs:** 8/8 completed
 
 ### SI-03.1 — ChannelsModule (entity + service + controller)
 - **Status:** completed
@@ -67,6 +67,16 @@
   - E2E test uploads a 2 KB buffer to MinIO via raw `S3Client.send(PutObjectCommand)` obtained from the test module fixture.
 
 ### SI-03.8 — Video worker (NestJS standalone + FFmpeg)
-- **Status:** pending
-- **Tests:** pending
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 2 passing (integration — happy path + falha permanente com arquivo inválido)
+- **Observations:**
+  - `WorkerModule` usa `NestFactory.createApplicationContext` (sem servidor HTTP); `VideoProcessorConsumer extends WorkerHost` registrado com `@Processor('video-processing')`.
+  - Fluxo do job: download do MinIO → ffprobe (duração, codec, dimensões) → faststart remux com `-c copy` (sem re-encode) → thumbnail a 50% via `.screenshots()` → upload de processed + thumbnail → `updateAfterProcessing`.
+  - `applyFaststart` usa `.outputOptions(['-movflags +faststart', '-c copy'])` — sem re-encode; happy path caiu de ~120s (re-encode) para ~286ms (remux) após correção no code review.
+  - `downloadToFile` usa `stream.pipeline()` em vez de `.pipe()` para cleanup bidirecional automático (fix de vazamento de fd).
+  - `fsPromises.access(thumbnailPath)` adicionado após `generateThumbnail` para detectar caso raro em que FFmpeg sai com código 0 mas não escreve o JPEG.
+  - Bucket names lidos via `storageConfig` injetado (`@Inject(storageConfig.KEY)`) — não mais `process.env` direto no módulo-level.
+  - `WorkerModule` importa `VideosModule` (que já exporta `VideosService`) em vez de redeclarar `VideosService` e `TypeOrmModule.forFeature([Video])` — SRP respeitado.
+  - Guard de `job.name !== 'video.process'` em `process()` e `onFailed` evita processar jobs de outros produtores da mesma fila.
+  - `afterAll` no integration spec tem timeout de 30 000 ms para cobrir o `BullMQ Worker.close()` (polling cycle de até 10 s).
+  - `tsconfig.worker.json` adicionado para compilação standalone com `moduleResolution: node` (evita requisito de extensão `.js` do `nodenext` principal).

@@ -45,8 +45,8 @@ O projeto é um monorepo baseado em containers Docker. Cada subprojeto sobe sua 
 - **Database** (PostgreSQL 17) — usuários, canais e tokens de autenticação.
 - **Email Service** (Mailpit) — captura os e-mails transacionais (confirmação de conta e recuperação de senha) em uma UI local.
 - **Object Storage** (MinIO/S3-compatible) — armazena arquivos de vídeo e thumbnails; upload multipart via presigned URLs.
-- **Message Queue** (Redis + BullMQ) — fila `video-processing` para tarefas assíncronas de transcodagem *(fila planejada — Fase 03 em andamento)*.
-- **Video Worker** (NestJS standalone + FFmpeg) — consome jobs da fila e processa vídeos *(planejado — Fase 03)*.
+- **Message Queue** (Redis + BullMQ) — fila `video-processing` para tarefas assíncronas de transcodagem.
+- **Video Worker** (NestJS standalone + FFmpeg) — consome jobs da fila, executa ffprobe → faststart remux (`-c copy`) → thumbnail → upload para MinIO → atualiza status no banco.
 
 O diagrama de arquitetura completo (C4) está em `docs/diagrams/software-arch.mermaid`.
 
@@ -130,7 +130,7 @@ Sufixos: `*.test.ts(x)` (unitário), `*.integration.test.ts(x)` (Route Handlers 
 
 ## ✅ Funcionalidades implementadas
 
-**Fase 01 — Configuração base** e **Fase 02 — Autenticação** estão concluídas (backend + frontend). **Fase 03 — Upload e Processamento de Vídeos** está em andamento (backend).
+**Fase 01 — Configuração base**, **Fase 02 — Autenticação** e **Fase 03 — Upload e Processamento de Vídeos** estão concluídas (backend).
 
 ### Autenticação (Fase 02)
 
@@ -157,17 +157,47 @@ Telas e Route Handlers BFF (`next-frontend`):
 
 Segurança: senhas com **Argon2**, **JWT** com `JwtAuthGuard` global (opt-out via `@Public()`), **rotação de refresh token** com detecção de reuso, **rate limiting** (`ThrottlerGuard`) nos endpoints de auth, e sessão no navegador via **iron-session** (cookies HTTP-only).
 
-### Canais e Infra de Vídeo (Fase 03 — em andamento)
+### Canais e Vídeos (Fase 03 — concluída)
 
-Implementações concluídas até o momento:
+Fluxo completo de **upload multipart → processamento assíncrono → streaming**, do rascunho ao vídeo pronto para assistir.
+
+#### Infra e domínio
 
 | Componente | O que faz |
 |------------|-----------|
 | `POST /channels` | Cria canal para usuário autenticado com slug gerado automaticamente |
-| Docker Compose (MinIO + Redis) | Object storage e broker de filas disponíveis no ambiente de desenvolvimento |
-| `StorageModule` | `S3Client` configurado para MinIO com `forcePathStyle`; `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort) e streaming com suporte a Range Requests (206) |
-| `QueueModule` | `BullModule` configurado com Redis via `forRootAsync`; fila `video-processing` disponível para injeção via `@InjectQueue('video-processing')` em qualquer módulo que importe `QueueModule` |
-| `VideosModule` / `VideosService` | Entidade `Video` (status enum, slug único de 11 chars, FK para canal, metadados jsonb); `VideosService` expõe criação de rascunho, busca por id/slug, atualização de status e atualização pós-processamento (storage key, thumbnail, duração, metadados) |
+| Docker Compose (MinIO + Redis + worker) | Object storage, broker de filas e worker de vídeo no ambiente de desenvolvimento (worker via `--profile worker`) |
+| `StorageModule` | `S3Client` configurado para MinIO com `forcePathStyle`; `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort), `putObject` (streaming via `@aws-sdk/lib-storage`), `getObjectStream` com Range Requests e `generatePresignedGetUrl` |
+| `QueueModule` | `BullModule` configurado com Redis via `forRootAsync`; fila `video-processing` disponível para injeção via `@InjectQueue('video-processing')` |
+| `VideosModule` / `VideosService` | Entidade `Video` (status enum, slug URL-safe de 11 chars, FK para canal, coluna jsonb `metadata`, `duration_seconds`, `storage_key`, `thumbnail_key`); `VideosService` expõe criação de rascunho, busca por id/slug, atualização de status, `updateAfterProcessing`, `getPublicVideoBySlug` e `getReadyVideoBySlug` |
+
+#### API de upload
+
+| Método & Rota | Descrição |
+|---------------|-----------|
+| `POST /videos/upload/initiate` | Cria rascunho + inicia multipart no MinIO; retorna `videoId` e `uploadId` |
+| `POST /videos/:id/upload/presigned-parts` | Gera URLs pré-assinadas para cada parte do upload |
+| `POST /videos/:id/upload/complete` | Finaliza o multipart e enfileira job de processamento |
+| `DELETE /videos/:id/upload/abort` | Aborta o multipart e remove o rascunho |
+
+#### API de vídeos
+
+| Método & Rota | Descrição |
+|---------------|-----------|
+| `GET /videos/:slug` | Metadados do vídeo (anônimo OK; não-prontos visíveis só para o dono) |
+| `GET /videos/:slug/stream` | Streaming do vídeo com suporte a `Range` (206 Partial Content) |
+| `GET /videos/:slug/download` | Download direto via presigned URL |
+
+#### Worker de vídeo (NestJS standalone + FFmpeg)
+
+Aplicação `NestFactory.createApplicationContext(WorkerModule)` que consome jobs `'video.process'` da fila:
+
+1. Download do arquivo bruto do MinIO para disco temporário
+2. `ffprobe` — extrai duração, codec, dimensões
+3. Faststart remux com `-c copy` (sem re-encode — move átomos moov para o início)
+4. `ffmpeg screenshots` — gera thumbnail a 50% do vídeo
+5. Upload do vídeo processado e thumbnail para MinIO
+6. `updateAfterProcessing` — grava status READY + metadados no banco
 
 ## 🛠️ Estrutura do Projeto
 
@@ -215,7 +245,7 @@ green-field-ia-project/
 |------|-----------|--------|
 | **01** | Configuração Base do Projeto | ✅ Concluída |
 | **02** | Cadastro, Login e Gerenciamento de Conta | ✅ Concluída |
-| **03** | Upload e Processamento de Vídeos | 🔄 Em andamento |
+| **03** | Upload e Processamento de Vídeos | ✅ Concluída |
 | **04** | Gerenciamento de Vídeos e Canal | ⏳ Planejada |
 | **05** | Página de Visualização do Vídeo | ⏳ Planejada |
 | **06** | Interações Sociais (Likes, Comentários, Inscrições) | ⏳ Planejada |
