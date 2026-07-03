@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "resolvePackageJsonExports": false,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "src/**/*.spec.ts",
+    "src/**/*.integration-spec.ts",
+    "src/**/*.e2e-spec.ts"
+  ]
+}

@@ -72,7 +72,7 @@ export class AuthService {
     );
     await this.mailService.sendConfirmationEmail(
       user.email,
-      user.channel.name,
+      user.channels[0].name,
       rawToken,
     );
 
@@ -149,7 +149,7 @@ export class AuthService {
     );
     await this.mailService.sendConfirmationEmail(
       user.email,
-      user.channel.name,
+      user.channels?.[0]?.name ?? '',
       rawToken,
     );
   }
@@ -251,7 +251,7 @@ export class AuthService {
     );
     await this.mailService.sendPasswordResetEmail(
       user.email,
-      user.channel.name,
+      user.channels?.[0]?.name ?? '',
       rawToken,
     );
   }

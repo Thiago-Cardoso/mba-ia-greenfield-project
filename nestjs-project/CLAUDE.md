@@ -13,6 +13,8 @@ docker compose ps   # all services must show status "running"
 Then verify each infrastructure service is actually ready to accept connections — not just running:
 
 - **PostgreSQL:** `docker compose exec db pg_isready -U streamtube` — expect `accepting connections`
+- **MinIO:** `docker compose exec minio mc ready local` — expect `The cluster is ready` (`mc` client is bundled in the `minio/minio` image; no host port exposed to avoid conflicts)
+- **Redis:** `docker compose exec redis redis-cli ping` — expect `PONG`
 
 Only start the NestJS dev server (`npm run start:dev`) when the user **explicitly** asks to run the application — never as part of "start the environment".
 
@@ -21,8 +23,11 @@ Only start the NestJS dev server (`npm run start:dev`) when the user **explicitl
 This project runs inside Docker. Always use the container for development:
 
 ```bash
-# Start containers
+# Start infra + API (worker excluded by default)
 docker compose up -d
+
+# Start everything including the video worker
+docker compose --profile worker up -d
 
 # Install dependencies (first time only)
 docker compose exec nestjs-api npm install
@@ -33,7 +38,11 @@ docker compose exec nestjs-api npm run start:dev
 
 Services:
 - `nestjs-api` — NestJS API, port `3000`
+- `nestjs-worker` — Video worker (FFmpeg), no exposed port — consumes BullMQ `video-processing` jobs from Redis; runs FFprobe + faststart remux + thumbnail generation (**profile: `worker`** — not started by default; use `docker compose --profile worker up -d` to include it)
 - `db` — PostgreSQL 17, port `5432`, database `streamtube`, user/password `streamtube`
+- `minio` — Object storage (MinIO), internal port `9000`/`9001` (no host binding — avoids conflicts), user/password via `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` in `.env`
+- `redis` — Message queue backend (Redis 7), internal port `6379` (no host binding — avoids conflicts)
+- `mailpit` — SMTP capture, SMTP port `1025`, web UI port `8025`
 
 All verification and teardown commands run on the **host machine**:
 
@@ -44,9 +53,19 @@ curl http://localhost:3000
 # Verify PostgreSQL is ready (runs inside the db container)
 docker compose exec db pg_isready -U streamtube
 
+# Verify MinIO is healthy (internal healthcheck — no host port)
+docker compose exec minio mc ready local
+
+# Verify Redis is responsive
+docker compose exec redis redis-cli ping
+
 # Check container logs
 docker compose logs nestjs-api
 docker compose logs db
+docker compose logs minio
+docker compose logs redis
+# worker is profile-gated:
+docker compose --profile worker logs nestjs-worker
 
 # Tear down the entire environment
 docker compose down
@@ -141,6 +160,19 @@ Whenever possible, prefer storing only the bare address in `.env` and composing 
 ## Build Assets
 
 `tsc` (and therefore `nest build`) only emits compiled `.ts` files to `dist/`. Any non-TypeScript runtime asset — Handlebars templates (`.hbs`), JSON fixtures, static config files, etc. — must be declared in `nest-cli.json` under `compilerOptions.assets` (with `watchAssets: true` for dev). Without that, the file exists in `src/` but is missing in `dist/` and runtime fails only after build.
+
+## Módulos implementados (Fase 03)
+
+| Módulo / Componente | Pacotes principais | O que faz |
+|---------------------|-------------------|-----------|
+| `StorageModule` | `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`, `@aws-sdk/lib-storage` | `S3Client` configurado via `ConfigModule.forFeature(storageConfig)` para MinIO (`forcePathStyle: true`); `StorageService` expõe upload multipart (initiate / presigned-part / complete / abort), `putObject` (streaming upload via `Upload`), `getObjectStream` com Range Requests e `generatePresignedGetUrl` |
+| `QueueModule` | `@nestjs/bullmq`, `bullmq`, `ioredis` | `BullModule` configurado via `forRootAsync` com Redis (host/port via `queueConfig`); expõe a fila `video-processing` para injeção via `@InjectQueue('video-processing')` |
+| `VideosModule` | `typeorm` | Entidade `Video` com `VideoStatus` enum (draft/processing/ready/error), slug URL-safe de 11 chars (via `crypto.randomBytes`), FK para `Channel`, coluna jsonb `metadata`, `duration_seconds`, `storage_key`, `thumbnail_key`; `VideosService` expõe `createDraftVideo`, `findByIdOrFail`, `findBySlugOrFail`, `updateStatus`, `updateAfterProcessing`, `getPublicVideoBySlug`, `getReadyVideoBySlug` |
+| `UploadController` | — | `POST /videos/upload/initiate` (cria rascunho + inicia multipart no MinIO), `POST /videos/:id/upload/presigned-parts` (gera URLs pré-assinadas por parte), `POST /videos/:id/upload/complete` (finaliza multipart + enfileira job de processamento), `DELETE /videos/:id/upload/abort` (aborta multipart + remove rascunho) |
+| `VideoController` | — | `GET /videos/:slug` (metadados — anônimo OK; vídeos não-prontos só acessíveis pelo dono), `GET /videos/:slug/stream` (streaming com 206 Partial Content e Range Requests), `GET /videos/:slug/download` (download direto via presigned URL) |
+| `WorkerModule` / `VideoProcessorConsumer` | `fluent-ffmpeg`, `@nestjs/bullmq` | Aplicação NestJS standalone (`createApplicationContext`) que consome jobs `'video.process'` da fila `video-processing`; fluxo: download do arquivo → ffprobe (duração, codec, dimensões) → faststart remux com `-c copy` (sem re-encode) → thumbnail a 50% do vídeo → upload de processed + thumbnail para MinIO → `updateAfterProcessing` no DB |
+
+`StorageModule` e `QueueModule` usam `ConfigModule.forFeature(config)` internamente — auto-suficientes em contexto standalone (worker). `WorkerModule` importa `VideosModule` (que exporta `VideosService`) em vez de redeclarar providers da alçada do domínio de vídeos.
 
 ## Architecture
 

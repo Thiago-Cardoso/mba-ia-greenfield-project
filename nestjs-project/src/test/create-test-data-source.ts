@@ -6,6 +6,7 @@ interface TestDataSourceOptions {
 }
 
 export function createTestDataSource(
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   entities: (Function | string | EntitySchema<any>)[],
   options: TestDataSourceOptions = {},
 ): DataSource {
@@ -26,6 +27,7 @@ export function createTestDataSource(
 export async function cleanAllTables(dataSource: DataSource): Promise<void> {
   await dataSource.query('DELETE FROM "refresh_tokens"');
   await dataSource.query('DELETE FROM "verification_tokens"');
+  await dataSource.query('DELETE FROM "videos"');
   await dataSource.query('DELETE FROM "channels"');
   await dataSource.query('DELETE FROM "users"');
 }
