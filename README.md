@@ -199,6 +199,41 @@ Aplicação `NestFactory.createApplicationContext(WorkerModule)` que consome job
 5. Upload do vídeo processado e thumbnail para MinIO
 6. `updateAfterProcessing` — grava status READY + metadados no banco
 
+## ✔️ Validação da Fase 03 — Fluxo completo executado
+
+O fluxo de upload → processamento → streaming foi executado e validado de ponta a ponta:
+
+| Etapa | Endpoint / Componente | Resultado |
+|-------|-----------------------|-----------|
+| Login | `POST /auth/login` | ✅ Token JWT gerado |
+| Iniciar upload | `POST /videos/upload/initiate` | ✅ `videoId` + `uploadId` criados; vídeo com `status: draft` |
+| URL pré-assinada | `POST /videos/:id/upload/presigned-parts` | ✅ Presigned URL válida para PUT no MinIO |
+| Upload para MinIO | PUT direto (presigned URL, sem passar pela API) | ✅ `HTTP 200`, ETag retornado |
+| Completar upload | `POST /videos/:id/upload/complete` | ✅ Job enfileirado; `status: processing` |
+| Worker processou | BullMQ → `VideoProcessorConsumer` | ✅ `status: ready`; `durationSeconds: 10` |
+| Metadados | `GET /videos/:slug` | ✅ Slug único, thumbnail URL gerada |
+| Streaming | `GET /videos/:slug/stream` + `Range: bytes=0-4095` | ✅ `HTTP 206 Partial Content` |
+| Download | `GET /videos/:slug/download` | ✅ `HTTP 200`, arquivo completo |
+
+### Thumbnail gerada automaticamente pelo worker (FFmpeg a 50% do vídeo)
+
+![Thumbnail gerada automaticamente pelo worker](docs/assets/fase03-thumbnail-example.jpg)
+
+### Suite de testes (rodado em 2026-07-03)
+
+```
+Unit + Integration:  179 tests — 28 suites — PASS
+E2E (supertest):      68 tests —  6 suites — PASS
+tsc --noEmit:        exit 0 (sem erros de compilação)
+lint:                 0 errors (23 warnings pré-existentes)
+```
+
+### Documentação interativa (Swagger)
+
+Com `SWAGGER_ENABLED=true` no `.env`, acesse **http://localhost:3000/api/docs** para explorar todos os endpoints. Clique em **Authorize** e informe o token JWT obtido em `POST /auth/login` para testar os endpoints protegidos diretamente no navegador.
+
+---
+
 ## 🛠️ Estrutura do Projeto
 
 ```
