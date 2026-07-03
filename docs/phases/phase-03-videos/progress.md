@@ -3,6 +3,12 @@
 **Status:** completed
 **SIs:** 8/8 completed
 
+### Pós-implementação — fixes e validação
+
+- **Lint fix:** `ApiBearerAuth` importado mas não usado em `video.controller.ts` removido — todos os endpoints do `VideoController` são `@Public()` e não carregam o decorator.
+- **DoD final (2026-07-03):** unit 179 ✅ · e2e 68 ✅ · `tsc --noEmit` 0 ✅ · lint 0 errors ✅
+- **Fluxo completo validado:** upload multipart → worker FFmpeg → `status: ready` → streaming 206 → download — executado com `streamtube-demo.mp4` (10s, 1280×720, H.264). Thumbnail a 50% gerada e armazenada em MinIO. Evidências em `docs/assets/fase03-thumbnail-example.jpg` e no README.
+
 ### SI-03.1 — ChannelsModule (entity + service + controller)
 - **Status:** completed
 - **Tests:** 135 unit/integration + 55 e2e — todos passando
