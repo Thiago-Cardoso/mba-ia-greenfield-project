@@ -303,6 +303,68 @@ Os 23 warnings são pré-existentes nas Fases 01 e 02 (`@typescript-eslint/no-un
 
 ---
 
+## 📋 Checklist de Critérios de Aceite — Fase 03
+
+### Decisões e planejamento
+
+| Critério | Status |
+|----------|--------|
+| `technical-decisions-phase-03-videos.md` com as decisões resolvidas e justificadas (fila, upload, streaming, processamento/thumbnail, ciclo de status) | ✅ |
+| `docs/phases/phase-03-videos/context.md` gerado por `plan-context` | ✅ |
+| `docs/phases/phase-03-videos/validation.md` com `status: clean` | ✅ |
+| `docs/phases/phase-03-videos/library-refs.md` com libs fixadas via context7 | ✅ |
+| `docs/phases/phase-03-videos/phase-03-videos.md` com SIs (SI-03.1–8), Technical Specs (Data Model, API Contracts, Authorization Matrix, Error Catalog, Events/Messages), Dependency Map e Deliverables | ✅ |
+| `docs/phases/phase-03-videos/progress.md` atualizado com status e testes por SI | ✅ |
+
+### Implementação — feature
+
+| Critério | Status |
+|----------|--------|
+| Upload de vídeo de até 10GB sem travar a API — arquivo vai direto ao MinIO via presigned URL (sem passar pela API) | ✅ |
+| Pré-cadastro automático do vídeo como rascunho (`status: draft`) ao iniciar o upload | ✅ |
+| Processamento automático após upload: `ffprobe` (duração, codec, dimensões) + faststart remux + thumbnail a 50% | ✅ |
+| URL única por vídeo sem conflito — slug de 11 caracteres gerado com `crypto.randomBytes` | ✅ |
+| Streaming sem exigir download completo — `GET /videos/:slug/stream` com `206 Partial Content` e Range Requests | ✅ |
+| Download do vídeo disponível — `GET /videos/:slug/download` | ✅ |
+| Ciclo de status (draft → processing → ready/error) refletido no banco | ✅ |
+
+### Implementação — infraestrutura e qualidade
+
+| Critério | Status |
+|----------|--------|
+| Object storage (MinIO), fila (Redis + BullMQ) e worker subindo via `docker compose` | ✅ |
+| Worker em container separado (`nestjs-worker`, `profile: worker`, `Dockerfile.worker` multi-stage com FFmpeg) | ✅ |
+| Migration cria tabela `videos` com FK para `channels` | ✅ |
+| Testes unit + integration verdes — **179 testes, 28 suites** | ✅ |
+| Testes E2E verdes — **68 testes, 6 suites** | ✅ |
+| `npx tsc --noEmit` — **exit 0** (sem erros de compilação) | ✅ |
+| `npm run lint` — **0 errors** (23 warnings pré-existentes das Fases 01/02) | ✅ |
+| Git Flow respeitado — branches `feature/*` e `bugfix/*` a partir de `dev`, sem commit direto na `main` | ✅ |
+
+### Documentação e artefatos de IA
+
+| Critério | Status |
+|----------|--------|
+| `nestjs-project/CLAUDE.md` atualizado com módulo de vídeos, endpoints, worker e storage | ✅ |
+| `CLAUDE.md` raiz atualizado, coerente com o código | ✅ |
+| Workflow completo executado: research → plan-context → plan-validate → plan-resolve → plan-build → implement | ✅ |
+
+### Reprova automática — nenhum item aplicável
+
+| Item | Status |
+|------|--------|
+| ~~Pular o workflow~~ — research + pipeline completo executado | ✅ |
+| ~~Plano sem SIs ou sem Technical Specs~~ — SI-03.1 a SI-03.8 com todas as seções | ✅ |
+| ~~validation.md que não fecha em clean~~ — `status: clean` desde o início da implementação | ✅ |
+| ~~Arquivo de 10GB passando pela API~~ — upload via presigned URL direto ao MinIO | ✅ |
+| ~~Sem fila, worker e storage reais~~ — MinIO + Redis + BullMQ + worker no Compose | ✅ |
+| ~~tsc com erro~~ — exit 0 | ✅ |
+| ~~Lint quebrado~~ — 0 errors | ✅ |
+| ~~Commit direto na main~~ — todo trabalho via branches + PRs para dev | ✅ |
+| ~~CLAUDE.md inconsistente com o código~~ — atualizado e verificado | ✅ |
+
+---
+
 ## 🛠️ Estrutura do Projeto
 
 ```
