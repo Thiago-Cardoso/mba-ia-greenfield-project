@@ -233,14 +233,73 @@ Grupos **upload** (4 endpoints protegidos por JWT 🔒) e **videos** (3 endpoint
 
 ![Thumbnail gerada automaticamente pelo worker](docs/assets/fase03-thumbnail-example.jpg)
 
-### Suite de testes (rodado em 2026-07-03)
+### Suite de testes — resultado final (2026-07-03)
+
+**Unit + Integration** (`npm test -- --runInBand`):
 
 ```
-Unit + Integration:  179 tests — 28 suites — PASS
-E2E (supertest):      68 tests —  6 suites — PASS
-tsc --noEmit:        exit 0 (sem erros de compilação)
-lint:                 0 errors (23 warnings pré-existentes)
+PASS src/auth/auth.service.integration-spec.ts
+PASS src/worker/video.processor.integration-spec.ts
+PASS src/auth/auth.service.spec.ts
+PASS src/openapi-export.integration-spec.ts
+PASS src/mail/mail.service.integration-spec.ts
+PASS src/auth/auth.module.spec.ts
+PASS src/videos/video.entity.integration-spec.ts
+PASS src/database/migrations.integration-spec.ts
+PASS src/mail/mail.module.spec.ts
+PASS src/channels/channels.module.spec.ts
+PASS src/users/users.service.integration-spec.ts
+PASS src/channels/channels.service.integration-spec.ts
+PASS src/auth/entities/verification-token.entity.integration-spec.ts
+PASS src/channels/entities/channel.entity.integration-spec.ts
+PASS src/videos/upload/upload.service.spec.ts
+PASS src/users/users.module.spec.ts
+PASS src/storage/storage.service.integration-spec.ts
+PASS src/auth/entities/refresh-token.entity.integration-spec.ts
+PASS src/videos/videos.service.spec.ts
+PASS src/channels/channels.service.spec.ts
+PASS src/queue/queue.module.spec.ts
+PASS src/users/entities/user.entity.integration-spec.ts
+PASS src/app.controller.spec.ts
+PASS src/auth/guards/jwt-auth.guard.spec.ts
+PASS src/config/swagger.config.spec.ts
+PASS src/common/filters/domain-exception.filter.spec.ts
+PASS src/common/filters/validation-exception.filter.spec.ts
+PASS src/config/env.validation.integration-spec.ts
+
+Test Suites: 28 passed, 28 total
+Tests:       179 passed, 179 total
+Time:        8.461 s
 ```
+
+**E2E** (`npm run test:e2e`):
+
+```
+PASS test/auth.e2e-spec.ts
+PASS test/video-upload.e2e-spec.ts
+PASS test/videos.e2e-spec.ts
+PASS test/swagger.e2e-spec.ts
+PASS test/channels.e2e-spec.ts
+PASS test/app.e2e-spec.ts
+
+Test Suites: 6 passed, 6 total
+Tests:       68 passed, 68 total
+Time:        5.251 s
+```
+
+**TypeScript** (`npx tsc --noEmit`):
+
+```
+exit 0 — sem erros de compilação
+```
+
+**Lint** (`npm run lint`):
+
+```
+23 problems (0 errors, 23 warnings)
+```
+
+Os 23 warnings são pré-existentes nas Fases 01 e 02 (`@typescript-eslint/no-unsafe-argument` em código legado de auth). Nenhum warning foi introduzido pela Fase 03.
 
 ---
 
