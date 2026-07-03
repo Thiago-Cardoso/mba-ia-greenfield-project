@@ -380,6 +380,39 @@ curl -s -I http://localhost:3000/videos/$SLUG/download
 
 ---
 
+## 📊 Monitoramento da fila — Bull Board
+
+O Bull Board é um dashboard web integrado à API para visualizar em tempo real os jobs da fila `video-processing`.
+
+**URL:** `http://localhost:3000/queues` (disponível assim que a API estiver rodando — não requer configuração extra)
+
+### O que você encontra lá
+
+| Aba | O que mostra |
+|-----|-------------|
+| **ATIVO** | Job sendo processado agora pelo worker FFmpeg |
+| **EM ESPERA** | Jobs enfileirados aguardando o worker |
+| **COMPLETO** | Jobs concluídos com payload, duração e progresso 100% |
+| **ERRO** | Jobs que falharam com stack trace completo para debugging |
+
+### Job concluído com sucesso — `video.process`
+
+O print abaixo mostra um job `video.process` na fila `video-processing` com status **COMPLETO**, processado em **735ms**, com o payload `videoId` e `storageKey` do arquivo original no MinIO:
+
+![Bull Board — job video.process concluído com sucesso](docs/assets/fase03-bullboard-job-completed.png)
+
+### Como usar durante o desenvolvimento
+
+1. Acesse **http://localhost:3000/queues** no navegador
+2. Faça um upload via Swagger (`POST /videos/upload/initiate` → `complete`)
+3. Acompanhe o job em **ATIVO** enquanto o FFmpeg processa
+4. Após o processamento, o job aparece em **COMPLETO** com os dados do payload
+5. Em caso de falha, clique em **ERRO** → selecione o job → aba **Erros** para ver o stack trace
+
+> O worker deve estar rodando (`docker compose --profile worker up -d`) para os jobs saírem de **EM ESPERA** para **ATIVO**. Sem o worker, os jobs ficam acumulados na fila e podem ser inspecionados pelo dashboard normalmente.
+
+---
+
 ## ✔️ Validação da Fase 03 — Fluxo completo executado
 
 O fluxo de upload → processamento → streaming foi executado e validado de ponta a ponta:
