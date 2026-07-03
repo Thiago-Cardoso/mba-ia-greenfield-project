@@ -215,6 +215,20 @@ O fluxo de upload → processamento → streaming foi executado e validado de po
 | Streaming | `GET /videos/:slug/stream` + `Range: bytes=0-4095` | ✅ `HTTP 206 Partial Content` |
 | Download | `GET /videos/:slug/download` | ✅ `HTTP 200`, arquivo completo |
 
+### Swagger UI — endpoints da Fase 03
+
+Grupos **upload** (4 endpoints protegidos por JWT 🔒) e **videos** (3 endpoints públicos) visíveis em `http://localhost:3000/api/docs` com `SWAGGER_ENABLED=true`:
+
+![Swagger UI — grupos upload e videos](docs/assets/fase03-swagger-endpoints.png)
+
+`POST /videos/upload/initiate` executado pelo Swagger com token Bearer — resposta `201` com `videoId` e `uploadId`:
+
+![POST /videos/upload/initiate — resposta 201](docs/assets/fase03-swagger-initiate.png)
+
+`POST /videos/{videoId}/upload/presigned-parts` — resposta `200` com presigned URL do MinIO para PUT direto:
+
+![POST /videos/upload/presigned-parts — resposta 200](docs/assets/fase03-swagger-presigned.png)
+
 ### Thumbnail gerada automaticamente pelo worker (FFmpeg a 50% do vídeo)
 
 ![Thumbnail gerada automaticamente pelo worker](docs/assets/fase03-thumbnail-example.jpg)
@@ -227,10 +241,6 @@ E2E (supertest):      68 tests —  6 suites — PASS
 tsc --noEmit:        exit 0 (sem erros de compilação)
 lint:                 0 errors (23 warnings pré-existentes)
 ```
-
-### Documentação interativa (Swagger)
-
-Com `SWAGGER_ENABLED=true` no `.env`, acesse **http://localhost:3000/api/docs** para explorar todos os endpoints. Clique em **Authorize** e informe o token JWT obtido em `POST /auth/login` para testar os endpoints protegidos diretamente no navegador.
 
 ---
 
