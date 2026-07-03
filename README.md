@@ -199,6 +199,220 @@ Aplicação `NestFactory.createApplicationContext(WorkerModule)` que consome job
 5. Upload do vídeo processado e thumbnail para MinIO
 6. `updateAfterProcessing` — grava status READY + metadados no banco
 
+## 🎬 Como testar o fluxo de vídeo (Fase 03)
+
+### 1. Subir o ambiente completo com o worker
+
+```bash
+cd nestjs-project
+
+# Sobe API + banco + MinIO + Redis + Mailpit
+docker compose up -d
+
+# Instala dependências (apenas primeira vez)
+docker compose exec nestjs-api npm install
+
+# Roda as migrations
+docker compose exec nestjs-api npm run migration:run
+
+# Sobe o servidor da API em watch mode
+docker compose exec -d nestjs-api npm run start:dev
+
+# Sobe o worker de vídeo (FFmpeg)
+docker compose --profile worker up -d
+```
+
+Confirme que todos os serviços estão prontos:
+
+```bash
+docker compose ps                                      # todos devem estar "running"
+docker compose exec db pg_isready -U streamtube        # "accepting connections"
+docker compose exec minio mc ready local               # "The cluster is ready"
+docker compose exec redis redis-cli ping               # "PONG"
+```
+
+---
+
+### 2. Criar conta e obter token
+
+**Registrar usuário:**
+
+```bash
+curl -s -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Demo","email":"demo@streamtube.com","password":"Demo@1234"}'
+```
+
+**Login (obtém access token):**
+
+```bash
+curl -s -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@streamtube.com","password":"Demo@1234"}'
+```
+
+Guarde o `access_token` da resposta. Ele expira em 15 minutos — repita o login para obter um novo quando necessário.
+
+---
+
+### 3. Obter o channelId
+
+```bash
+TOKEN="<access_token>"
+
+curl -s http://localhost:3000/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+O campo `sub` é o `userId`. Busque o canal pelo banco:
+
+```bash
+docker compose exec db psql -U streamtube -d streamtube -t -c \
+  "SELECT id FROM channels WHERE user_id = '<userId>';"
+```
+
+---
+
+### 4. Fluxo completo de upload via curl
+
+**Iniciar upload:**
+
+```bash
+TOKEN="<access_token>"
+CHANNEL_ID="<channelId>"
+
+INIT=$(curl -s -X POST http://localhost:3000/videos/upload/initiate \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"channelId\":\"$CHANNEL_ID\",\"title\":\"Meu vídeo\",\"fileSize\":4078947,\"contentType\":\"video/mp4\"}")
+
+echo $INIT
+VIDEO_ID=$(echo $INIT | python3 -c "import sys,json; print(json.load(sys.stdin)['videoId'])")
+UPLOAD_ID=$(echo $INIT | python3 -c "import sys,json; print(json.load(sys.stdin)['uploadId'])")
+```
+
+**Gerar URL pré-assinada para upload:**
+
+```bash
+PARTS=$(curl -s -X POST "http://localhost:3000/videos/$VIDEO_ID/upload/presigned-parts" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"uploadId\":\"$UPLOAD_ID\",\"partNumbers\":[1]}")
+
+PRESIGNED_URL=$(echo $PARTS | python3 -c "import sys,json; print(json.load(sys.stdin)['parts'][0]['url'])")
+```
+
+**Enviar o arquivo direto ao MinIO** (a URL usa `minio:9000` — deve ser chamada de dentro do container):
+
+> Primeiro, copie seu arquivo `.mp4` para dentro do container:
+> ```bash
+> docker compose cp /caminho/para/seu-video.mp4 nestjs-api:/tmp/video.mp4
+> ```
+
+```bash
+docker compose exec -T nestjs-api \
+  sh -c "curl -s -i -X PUT '$PRESIGNED_URL' \
+    -H 'Content-Type: video/mp4' \
+    --upload-file /tmp/video.mp4" | grep -i "etag"
+```
+
+Guarde o valor do ETag **sem as aspas** (ex: `cb56849ed4d688e1110f9d62f891242c`).
+
+**Completar o upload (enfileira processamento):**
+
+```bash
+ETAG="<etag-sem-aspas>"
+
+curl -s -X POST "http://localhost:3000/videos/$VIDEO_ID/upload/complete" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"uploadId\":\"$UPLOAD_ID\",\"parts\":[{\"partNumber\":1,\"etag\":\"$ETAG\"}]}"
+```
+
+Resposta esperada: `{"videoId":"...","status":"processing"}`
+
+---
+
+### 5. Acompanhar o processamento
+
+O worker (FFmpeg) processa automaticamente em segundo plano. Verifique o status:
+
+```bash
+docker compose exec db psql -U streamtube -d streamtube -t -c \
+  "SELECT slug, status, duration_seconds FROM videos ORDER BY created_at DESC LIMIT 1;"
+```
+
+Aguarde até `status = ready` (geralmente < 30 segundos para vídeos curtos).
+
+---
+
+### 6. Testar streaming e download
+
+**Metadados:**
+
+```bash
+SLUG="<slug-do-video>"
+curl -s http://localhost:3000/videos/$SLUG | python3 -m json.tool
+```
+
+**Streaming (206 Partial Content):**
+
+```bash
+curl -s -i -H "Range: bytes=0-4095" http://localhost:3000/videos/$SLUG/stream | head -5
+```
+
+**Download:**
+
+```bash
+curl -s -I http://localhost:3000/videos/$SLUG/download
+```
+
+---
+
+### 7. Testar via Swagger UI
+
+1. Adicione `SWAGGER_ENABLED=true` no `nestjs-project/.env`
+2. Acesse **http://localhost:3000/api/docs**
+3. Clique em **Authorize** → cole o `access_token` obtido em `POST /auth/login` → **Authorize**
+4. Os endpoints do grupo **upload** (🔒) já enviarão o header `Authorization: Bearer` automaticamente
+
+> O token expira em 15 minutos. Para renovar: execute `POST /auth/login` novamente no Swagger, copie o novo `access_token`, clique em **Authorize → Logout → cole o novo token → Authorize**.
+
+---
+
+## 📊 Monitoramento da fila — Bull Board
+
+O Bull Board é um dashboard web integrado à API para visualizar em tempo real os jobs da fila `video-processing`.
+
+**URL:** `http://localhost:3000/queues` (disponível assim que a API estiver rodando — não requer configuração extra)
+
+### O que você encontra lá
+
+| Aba | O que mostra |
+|-----|-------------|
+| **ATIVO** | Job sendo processado agora pelo worker FFmpeg |
+| **EM ESPERA** | Jobs enfileirados aguardando o worker |
+| **COMPLETO** | Jobs concluídos com payload, duração e progresso 100% |
+| **ERRO** | Jobs que falharam com stack trace completo para debugging |
+
+### Job concluído com sucesso — `video.process`
+
+O print abaixo mostra um job `video.process` na fila `video-processing` com status **COMPLETO**, processado em **735ms**, com o payload `videoId` e `storageKey` do arquivo original no MinIO:
+
+![Bull Board — job video.process concluído com sucesso](docs/assets/fase03-bullboard-job-completed.png)
+
+### Como usar durante o desenvolvimento
+
+1. Acesse **http://localhost:3000/queues** no navegador
+2. Faça um upload via Swagger (`POST /videos/upload/initiate` → `complete`)
+3. Acompanhe o job em **ATIVO** enquanto o FFmpeg processa
+4. Após o processamento, o job aparece em **COMPLETO** com os dados do payload
+5. Em caso de falha, clique em **ERRO** → selecione o job → aba **Erros** para ver o stack trace
+
+> O worker deve estar rodando (`docker compose --profile worker up -d`) para os jobs saírem de **EM ESPERA** para **ATIVO**. Sem o worker, os jobs ficam acumulados na fila e podem ser inspecionados pelo dashboard normalmente.
+
+---
+
 ## ✔️ Validação da Fase 03 — Fluxo completo executado
 
 O fluxo de upload → processamento → streaming foi executado e validado de ponta a ponta:

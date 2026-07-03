@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, type ConfigType } from '@nestjs/config';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
 import {
   S3Client,
   CreateBucketCommand,
@@ -84,6 +86,7 @@ describe('VideoProcessorConsumer (integration)', () => {
     module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
+        BullBoardModule.forRoot({ route: '/queues', adapter: ExpressAdapter }),
         ConfigModule.forFeature(storageConfig),
         TypeOrmModule.forRootAsync({
           imports: [ConfigModule.forFeature(databaseConfig)],

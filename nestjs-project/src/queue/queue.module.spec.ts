@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
 import { QueueModule } from './queue.module';
 
 describe('QueueModule', () => {
@@ -6,7 +8,10 @@ describe('QueueModule', () => {
 
   beforeAll(async () => {
     module = await Test.createTestingModule({
-      imports: [QueueModule],
+      imports: [
+        BullBoardModule.forRoot({ route: '/queues', adapter: ExpressAdapter }),
+        QueueModule,
+      ],
     }).compile();
   });
 
