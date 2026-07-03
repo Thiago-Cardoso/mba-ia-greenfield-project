@@ -7,6 +7,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/auth.types';
 import { UploadService } from './upload.service';
@@ -15,6 +16,8 @@ import { PresignedPartsDto } from './dto/presigned-parts.dto';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { AbortUploadDto } from './dto/abort-upload.dto';
 
+@ApiTags('upload')
+@ApiBearerAuth('access-token')
 @Controller('videos')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
